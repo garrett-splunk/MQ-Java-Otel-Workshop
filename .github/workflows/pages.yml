@@ -1,0 +1,32 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workshop-site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Publishes workshop-site/ to the gh-pages branch (classic GitHub Pages source).
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish workshop site to gh-pages branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: workshop-site
+          branch: gh-pages
+          clean: true
+          commit-message: "Deploy workshop site from main"
