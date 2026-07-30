@@ -294,6 +294,10 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
           <thead><tr><th>Symptom</th><th>Things to check</th></tr></thead>
           <tbody>
             <tr>
+              <td><code>mq</code> exits with code 1 / AMQ5776E</td>
+              <td>Stale queue manager volume from a failed first start. Run <code>docker compose down -v</code>, <code>git pull</code>, rebuild <code>mq</code>, then <code>docker compose up -d</code> again.</td>
+            </tr>
+            <tr>
               <td><code>ibm-mq-java-metrics</code> build fails</td>
               <td>Needs outbound HTTPS to Maven Central during <code>docker compose build</code>. On Apple Silicon, image uses <code>linux/amd64</code> emulation.</td>
             </tr>
