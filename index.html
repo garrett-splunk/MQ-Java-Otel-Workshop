@@ -32,6 +32,7 @@
       <p class="sidebar__hint">Metrics · APM · logs · ~60–90 min</p>
       <ul class="sidebar-tree">
         <li><a href="#overview" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> Overview</a></li>
+        <li><a href="#architecture" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> Architecture</a></li>
         <li><a href="#compare" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> vs mq_otel</a></li>
         <li><a href="#prereqs" class="sidebar-tree__link" data-step="1"><span class="sidebar-tree__num">1</span> Prerequisites</a></li>
         <li><a href="#step-clone" class="sidebar-tree__link" data-step="2"><span class="sidebar-tree__num">2</span> Clone repo</a></li>
@@ -67,6 +68,91 @@
         </div>
       </header>
 
+      <section id="architecture">
+        <h2>Application architecture — what the demo does</h2>
+        <p class="muted">This lab simulates a simple <strong>order pipeline</strong>: a web API accepts orders, checks inventory, publishes to IBM MQ, and a background worker fulfills them. Every hop is instrumented with OpenTelemetry so Splunk APM can draw a meaningful <strong>service map</strong>.</p>
+
+        <h3>Order lifecycle (one request)</h3>
+        <ol class="checklist">
+          <li><strong>You</strong> (or <code>load-traffic.sh</code>) send <code>POST /orders</code> to <code>order-producer</code> with <code>productId</code>, <code>quantity</code>, and optional <code>X-Correlation-Id</code>.</li>
+          <li><strong>order-producer</strong> calls <code>inventory-service</code> → <code>POST /check</code> to confirm enough stock exists. If not, the order is rejected with <code>409</code> and nothing is sent to MQ.</li>
+          <li><strong>order-producer</strong> publishes a JSON order message to IBM MQ queue <code>ORDER.REQ</code> and returns <code>202 accepted</code>.</li>
+          <li><strong>order-consumer</strong> (running in the background) reads the message from <code>ORDER.REQ</code>.</li>
+          <li><strong>order-consumer</strong> calls <code>inventory-service</code> → <code>POST /fulfill</code> to decrement in-memory stock for that SKU.</li>
+        </ol>
+
+        <div class="code-block">
+          <div class="code-block__header"><span>Request flow</span></div>
+          <pre><code>Client
+  │  POST /orders  (X-Correlation-Id → orderId)
+  ▼
+order-producer :8080
+  │  POST /check   (inventory.check span)
+  ▼
+inventory-service :8082
+  │  200 OK (stock available)
+  ▼
+order-producer
+  │  MQ PUT ORDER.REQ  (mq.put.order span)
+  ▼
+IBM MQ :1414
+  │  async message
+  ▼
+order-consumer :8081
+  │  MQ GET ORDER.REQ  (mq.get.order span)
+  │  POST /fulfill    (inventory.fulfill span)
+  ▼
+inventory-service :8082</code></pre>
+        </div>
+
+        <h3>Services in the stack</h3>
+        <table class="info-table">
+          <thead><tr><th>Service</th><th>Port</th><th>Role in the demo</th></tr></thead>
+          <tbody>
+            <tr><td><code>order-producer</code></td><td>8080</td><td>HTTP API — accepts orders, checks inventory, publishes to MQ</td></tr>
+            <tr><td><code>inventory-service</code></td><td>8082</td><td>In-memory stock ledger — <code>/check</code> before publish, <code>/fulfill</code> after consume</td></tr>
+            <tr><td><code>order-consumer</code></td><td>8081</td><td>Background worker — reads <code>ORDER.REQ</code>, fulfills inventory</td></tr>
+            <tr><td><code>mq</code> (IBM MQ)</td><td>1414</td><td>Message broker — decouples producer from consumer; queue depth drives <code>ibm.mq.*</code> metrics</td></tr>
+            <tr><td><code>ibm-mq-java-metrics</code></td><td>—</td><td>Sidecar — scrapes MQ via PCF every 15s, exports <code>ibm.mq.*</code> metrics (not part of the order HTTP path)</td></tr>
+            <tr><td><code>otel-collector</code></td><td>4317/4318</td><td>Receives OTLP traces, metrics, and logs from all services → forwards to Splunk</td></tr>
+          </tbody>
+        </table>
+
+        <h3>What you should see in the Splunk APM service map</h3>
+        <p>After sending a few orders, open <strong>APM → Service map</strong> with filter <code>deployment.environment:ibm-mq-lab</code>. Expect these <strong>dependencies (edges)</strong>:</p>
+        <table class="info-table">
+          <thead><tr><th>From</th><th>To</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td><code>order-producer</code></td><td><code>inventory-service</code></td><td>HTTP <code>POST /check</code> before every MQ publish</td></tr>
+            <tr><td><code>order-producer</code></td><td>IBM MQ</td><td>App span <code>mq.put.order</code> (messaging client PUT)</td></tr>
+            <tr><td><code>order-consumer</code></td><td>IBM MQ</td><td>App span <code>mq.get.order</code> (messaging client GET)</td></tr>
+            <tr><td><code>order-consumer</code></td><td><code>inventory-service</code></td><td>HTTP <code>POST /fulfill</code> after each consumed message</td></tr>
+            <tr><td><code>ibm-mq-java-metrics</code></td><td>IBM MQ</td><td>PCF scrape (metrics only — may not appear as a trace edge)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Trace spans by service</h3>
+        <table class="info-table">
+          <thead><tr><th>Service</th><th>Span names</th><th>When</th></tr></thead>
+          <tbody>
+            <tr><td><code>order-producer</code></td><td><code>POST /orders</code>, <code>inventory.check</code>, <code>mq.put.order</code></td><td>Each incoming order request</td></tr>
+            <tr><td><code>inventory-service</code></td><td><code>POST /check</code>, <code>inventory.reserve.check</code></td><td>Stock validation from producer</td></tr>
+            <tr><td><code>inventory-service</code></td><td><code>POST /fulfill</code>, <code>inventory.fulfill</code></td><td>Stock decrement from consumer</td></tr>
+            <tr><td><code>order-consumer</code></td><td><code>mq.get.order</code>, <code>inventory.fulfill</code></td><td>Each message read from <code>ORDER.REQ</code></td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout--concept">
+          <p class="callout__title">Async messaging vs one long trace</p>
+          <p>Producer and consumer run as <strong>separate processes</strong> connected by IBM MQ. Splunk APM typically shows <strong>two trace trees</strong> per order (one for the HTTP request at the producer, one for the background GET at the consumer), not a single end-to-end trace. Tie them together with the shared <code>orderId</code> / <code>X-Correlation-Id</code> in span attributes and structured logs (Steps 9 and 11). Optional Step 10 (MQ tracing exit) can add queue-manager spans that sit between producer and consumer in the map.</p>
+        </div>
+
+        <div class="callout callout--tip">
+          <p class="callout__title">Why add inventory-service?</p>
+          <p>A producer → MQ → consumer map alone can look like a thin line. The inventory calls add realistic <strong>HTTP dependencies</strong> on both sides of the queue so the service map shows a hub-and-spoke pattern: two services talking to a shared downstream API, with MQ in the middle.</p>
+        </div>
+      </section>
+
       <section id="compare">
         <h2>How this lab differs from the main IBM MQ workshop</h2>
         <p class="muted">Both labs share the same sample apps, collector pattern, and Splunk environment tag (<code>ibm-mq-lab</code>). The difference is <em>which MQ metrics exporter</em> you run and <em>what the workshop exercises cover</em>.</p>
@@ -82,7 +168,7 @@
             <tr><td>Exporter connection</td><td>In-process with queue manager (no extra client channel for metrics)</td><td>Client to <code>mq:1414</code> via <code>MQOTEL.SVRCONN</code></td></tr>
             <tr><td>First <code>docker compose up</code></td><td>Faster — no extra metrics sidecar build</td><td>Downloads prebuilt Java Contrib JAR from Maven Central (~1 min)</td></tr>
             <tr><td>App traces (APM)</td><td>Available in repo; default Compose often has <code>OTEL_SDK_DISABLED=true</code>; exercises defer APM to Phase 2</td><td><strong>Enabled by default</strong> (<code>OTEL_SDK_DISABLED=false</code>); Steps 9–11 cover APM and logs</td></tr>
-            <tr><td>App span names</td><td colspan="2"><code>mq.put.order</code> (producer), <code>mq.get.order</code> (consumer) — same in both repos</td></tr>
+            <tr><td>App span names</td><td><code>mq.put.order</code>, <code>mq.get.order</code></td><td>Same MQ spans, plus <code>inventory.check</code> / <code>inventory.fulfill</code> and <code>inventory-service</code> HTTP spans — see <a href="#architecture">Architecture</a></td></tr>
             <tr><td>MQ native tracing exit</td><td>Optional Phase 2 (<code>mq/mqtracingexit.conf</code>)</td><td>Optional Step 10 — same config, same collector gRPC port</td></tr>
             <tr><td>Collector pipelines</td><td colspan="2">OTLP in → Splunk metrics (<code>signalfx</code>), traces (<code>otlphttp/traces</code>), logs (<code>splunk_hec/o11y</code>)</td></tr>
             <tr><td>Environment filter</td><td colspan="2"><code>deployment.environment:ibm-mq-lab</code></td></tr>
@@ -94,9 +180,13 @@
         <div class="flow-diagram" role="img" aria-label="Observability flow">
           <div class="flow-node"><div class="flow-title">order-producer</div><div class="flow-sub">traces · logs</div></div>
           <div class="flow-arrow"><span>→</span></div>
+          <div class="flow-node"><div class="flow-title">inventory-service</div><div class="flow-sub">stock check · fulfill</div></div>
+          <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node flow-node-accent"><div class="flow-title">IBM MQ</div><div class="flow-sub">Java metrics · tracing exit</div></div>
           <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node"><div class="flow-title">order-consumer</div><div class="flow-sub">traces · logs</div></div>
+          <div class="flow-arrow"><span>→</span></div>
+          <div class="flow-node"><div class="flow-title">inventory-service</div><div class="flow-sub">decrement stock</div></div>
           <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node"><div class="flow-title">ibm-mq-java-metrics</div><div class="flow-sub">ibm.mq.* metrics</div></div>
           <div class="flow-arrow"><span>→</span></div>
@@ -152,13 +242,13 @@ grep -q 'your-ingest-token-here' .env.splunk && echo "WARN: replace placeholder 
           <pre><code id="cmd-env">cp .env.example .env</code></pre>
         </div>
         <p>Default demo MQ password is <code>passw0rd</code> (<code>MQ_APP_PASSWORD</code> in <code>.env</code>). The Java exporter uses the same credentials via Compose environment variables.</p>
-        <p><code>OTEL_SDK_DISABLED=false</code> (default) turns on OTLP traces and logs from <code>order-producer</code> and <code>order-consumer</code> for the APM exercises in Step 9. Set <code>true</code> only if you want metrics-only locally.</p>
+        <p><code>OTEL_SDK_DISABLED=false</code> (default) turns on OTLP traces and logs from <code>order-producer</code>, <code>inventory-service</code>, and <code>order-consumer</code> for the APM exercises in Step 9. Set <code>true</code> only if you want metrics-only locally.</p>
       </section>
 
       <section id="step-start">
         <div class="step-meta"><span class="step-badge">Step 5</span><span class="step-time">~10–20 min first build</span></div>
         <h2>Start the stack</h2>
-        <p>Builds and starts: IBM MQ, OpenTelemetry Collector, <strong>ibm-mq-java-metrics</strong> sidecar, order producer/consumer, and the local workshop site.</p>
+        <p>Builds and starts: IBM MQ, OpenTelemetry Collector, <strong>ibm-mq-java-metrics</strong> sidecar, order producer/consumer, inventory service, and the local workshop site.</p>
         <div class="code-block">
           <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-up">Copy</button></div>
           <pre><code id="cmd-up">docker compose up --build -d</code></pre>
@@ -221,7 +311,7 @@ bash scripts/load-traffic.sh 30 400</code></pre>
       <section id="step-apm">
         <div class="step-meta"><span class="step-badge">Step 9</span><span class="step-time">~15 min</span></div>
         <h2>APM — trace an order through IBM MQ</h2>
-        <p>Sample apps emit OpenTelemetry traces for HTTP requests and MQ PUT/GET operations. The collector forwards them to Splunk Observability Cloud APM via the <code>traces</code> pipeline (<code>otlphttp/traces</code> exporter).</p>
+        <p>Sample apps emit OpenTelemetry traces for HTTP requests and MQ PUT/GET operations. The collector forwards them to Splunk Observability Cloud APM via the <code>traces</code> pipeline (<code>otlphttp/traces</code> exporter). For a full picture of which services call which, read <a href="#architecture">Application architecture</a> first.</p>
 
         <h3>9a — Trigger a traceable order</h3>
         <p>Use a unique correlation ID so you can find the same request in APM and logs:</p>
@@ -234,7 +324,7 @@ curl -v -X POST http://localhost:8080/orders \
   -d '{"productId":"SKU-APM","quantity":1}'
 echo "Correlation ID: ${CORR_ID}"</code></pre>
         </div>
-        <p>Expect <code>202 accepted</code>. The producer creates a span named <code>mq.put.order</code>; the consumer creates <code>mq.get.order</code> when it reads the message.</p>
+        <p>Expect <code>202 accepted</code>. The producer calls <code>inventory-service</code> to verify stock, then creates a span named <code>mq.put.order</code>; the consumer creates <code>mq.get.order</code> when it reads the message and calls inventory again to fulfill the order.</p>
 
         <h3>9b — Confirm traces reach the collector</h3>
         <div class="code-block">
@@ -247,11 +337,11 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
         <ol class="checklist">
           <li>Open <strong>APM</strong> → <strong>Services</strong> (or <strong>Traces</strong>).</li>
           <li>Set environment filter: <code>deployment.environment:ibm-mq-lab</code></li>
-          <li>Locate services <code>order-producer</code> and <code>order-consumer</code>.</li>
-          <li>Open <strong>Traces</strong> for <code>order-producer</code>; look for spans <code>POST /orders</code> and <code>mq.put.order</code>.</li>
+          <li>Locate services <code>order-producer</code>, <code>inventory-service</code>, and <code>order-consumer</code>.</li>
+          <li>Open <strong>Traces</strong> for <code>order-producer</code>; look for spans <code>POST /orders</code>, <code>inventory.check</code>, and <code>mq.put.order</code>.</li>
           <li>Inspect attributes: <code>messaging.system=ibmmq</code>, <code>messaging.destination.name=ORDER.REQ</code>, <code>order.product_id</code>.</li>
-          <li>Open traces for <code>order-consumer</code> and find <code>mq.get.order</code> spans on the same timeline.</li>
-          <li>Optional: open the <strong>Service map</strong> — you should see edges between producer, consumer, and (if MQ tracing exit is enabled) IBM MQ.</li>
+          <li>Open traces for <code>order-consumer</code> and find <code>mq.get.order</code> and <code>inventory.fulfill</code> spans.</li>
+          <li>Open the <strong>Service map</strong> — you should see <code>order-producer</code> → <code>inventory-service</code>, producer → IBM MQ → consumer, and consumer → <code>inventory-service</code> (plus MQ tracing exit spans if enabled).</li>
         </ol>
         <div class="callout callout--info">
           <p class="callout__title">Correlation ID</p>
@@ -285,7 +375,7 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
         <ol class="checklist">
           <li>Open <strong>Log Observer</strong> (or Logs).</li>
           <li>Filter: <code>deployment.environment:ibm-mq-lab</code></li>
-          <li>Search: <code>service.name:order-producer</code> or <code>service.name:order-consumer</code></li>
+          <li>Search: <code>service.name:order-producer</code>, <code>service.name:inventory-service</code>, or <code>service.name:order-consumer</code></li>
           <li>Find log lines like <code>Order message published to IBM MQ</code> / <code>Order message consumed from IBM MQ</code>.</li>
           <li>Match the <code>correlationId</code> field from Step 9a across producer and consumer logs.</li>
         </ol>
@@ -314,7 +404,15 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
             </tr>
             <tr>
               <td>No traces in APM</td>
-              <td>Confirm <code>OTEL_SDK_DISABLED=false</code> in <code>.env</code>, then <code>docker compose up -d --force-recreate order-producer order-consumer</code>. Check collector: Step 9b. Wait 30–60s after traffic.</td>
+              <td>Confirm <code>OTEL_SDK_DISABLED=false</code> in <code>.env</code>, then <code>docker compose up -d --force-recreate order-producer order-consumer inventory-service</code>. Check collector: Step 9b. Wait 30–60s after traffic.</td>
+            </tr>
+            <tr>
+              <td><code>503 Inventory service unavailable</code></td>
+              <td><code>curl http://localhost:8082/health</code> — ensure <code>inventory-service</code> is running. Producer waits for inventory before MQ PUT.</td>
+            </tr>
+            <tr>
+              <td><code>409 Insufficient inventory</code></td>
+              <td>Expected if stock is exhausted for a SKU. Restart <code>inventory-service</code> to reset in-memory stock, or use another <code>productId</code> (e.g. <code>SKU-100</code>).</td>
             </tr>
             <tr>
               <td>Services missing in APM</td>
