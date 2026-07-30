@@ -23,7 +23,9 @@ bash scripts/verify-stack.sh
 | http://localhost:9443/ibmmq/console | MQ web console (`admin` / password from `.env`) |
 | http://localhost:13133 | OTel Collector health |
 
-**Splunk filter:** `deployment.environment:ibm-mq-lab` · search metrics with **`ibm.mq`**
+**Splunk filter:** `deployment.environment:ibm-mq-lab` · MQ metrics: **`ibm.mq`** · APM services: **`order-producer`**, **`order-consumer`**
+
+App traces are **on by default** (`OTEL_SDK_DISABLED=false` in `.env.example`). Spans include `mq.put.order` and `mq.get.order`.
 
 ## Send test orders
 
@@ -42,7 +44,7 @@ Secrets live only in `.env.splunk` (gitignored). The collector loads them and fo
 
 ## Related lab
 
-The [MQ-O11y-Workshop](https://github.com/garrett-splunk/MQ-O11y-Workshop) repo covers the IBM Go **`mq_otel`** exporter track (`ibmmq.*` metrics).
+The [MQ-O11y-Workshop](https://github.com/garrett-splunk/MQ-O11y-Workshop) repo covers the IBM Go **`mq_otel`** exporter track (`ibmmq.*` metrics) with a metrics-first workshop; APM is documented as Phase 2 there. This repo includes **metrics + APM + logs** in the guided steps.
 
 ## Teardown
 

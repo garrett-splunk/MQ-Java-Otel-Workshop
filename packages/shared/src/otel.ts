@@ -25,8 +25,8 @@ function buildResource(serviceName: string, deploymentEnvironment: string): Reso
     [ATTR_SERVICE_NAME]: serviceName,
     [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: deploymentEnvironment,
     'deployment.environment': deploymentEnvironment,
-    'service.namespace': 'ibm-mq-lab',
-    'demo.name': 'ibm-mq-o11y-lab',
+    'service.namespace': 'ibm-mq-java-otel-workshop',
+    'demo.name': 'mq-java-otel-workshop',
   });
 }
 

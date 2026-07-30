@@ -3,7 +3,7 @@ x-otel-environment: &otel-environment
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
   DEPLOYMENT_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:-ibm-mq-lab}
   OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=${DEPLOYMENT_ENVIRONMENT:-ibm-mq-lab},deployment.environment=${DEPLOYMENT_ENVIRONMENT:-ibm-mq-lab},service.namespace=ibm-mq-java-otel-workshop,demo.name=mq-java-otel-workshop
-  OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+  OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
 
 x-mq-environment: &mq-environment
   MQ_QUEUE_MANAGER: ${MQ_QUEUE_MANAGER:-QM1}
