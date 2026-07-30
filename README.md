@@ -1,33 +1,55 @@
-# IBM MQ → Splunk Observability Cloud (Java Contrib track)
+# IBM MQ → OpenTelemetry Java Contrib → Splunk Observability Cloud
 
-Guided workshop for exporting IBM MQ metrics with [OpenTelemetry Java Contrib `ibm-mq-metrics`](https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics) and viewing them in Splunk Observability Cloud.
+Hands-on workshop: IBM MQ queue manager, **OpenTelemetry Java Contrib `ibm-mq-metrics`** → OpenTelemetry Collector → Splunk Observability Cloud **Metrics**. Sample apps generate message traffic so queue depth changes.
 
-## Live workshop site
+## Quick start
 
-**https://garrett-splunk.github.io/MQ-Java-Otel-Workshop/**
-
-## Lab stack (Docker Compose)
-
-This site documents the Java Contrib exporter track. The runnable lab stack lives in the main repo:
-
-**https://github.com/garrett-splunk/MQ-O11y-Workshop**
-
-Clone that repo, complete Steps 1–6 of the [main workshop](https://garrett-splunk.github.io/MQ-O11y-Workshop/), then follow this site to start the `ibm-mq-java-metrics` sidecar:
+**Apple Silicon (M1/M2/M3):** IBM MQ and the Java metrics image run under `platform: linux/amd64` in Compose. First start (especially the Gradle build for `ibm-mq-java-metrics`) may take several minutes.
 
 ```bash
-docker compose --profile java-contrib build ibm-mq-java-metrics
-docker compose --profile java-contrib up -d ibm-mq-java-metrics
+git clone https://github.com/garrett-splunk/MQ-Java-Otel-Workshop.git
+cd MQ-Java-Otel-Workshop
+cp .env.example .env
+cp .env.splunk.example .env.splunk   # add your Splunk ingest token
+docker compose up --build -d
+bash scripts/verify-stack.sh
 ```
 
-Search Splunk Observability Cloud Metric Explorer for `ibm.mq.*` (not `ibmmq.*`).
+| URL | Purpose |
+|-----|---------|
+| https://garrett-splunk.github.io/MQ-Java-Otel-Workshop/ | Guided workshop (GitHub Pages) |
+| http://localhost:8091 | Workshop site (local, with stack running) |
+| http://localhost:8080 | Order producer API |
+| http://localhost:9443/ibmmq/console | MQ web console (`admin` / password from `.env`) |
+| http://localhost:13133 | OTel Collector health |
 
-## Related
+**Splunk filter:** `deployment.environment:ibm-mq-lab` · search metrics with **`ibm.mq`**
 
-| Resource | URL |
-|----------|-----|
-| Main lab (`mq_otel` track) | https://garrett-splunk.github.io/MQ-O11y-Workshop/ |
-| Java Contrib upstream | https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics |
+## Send test orders
 
-## Deploy this site
+```bash
+curl -X POST http://localhost:8080/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Correlation-Id: demo-1" \
+  -d '{"productId":"SKU-100","quantity":2}'
 
-Pushes to `main` that touch `workshop-site/` run `.github/workflows/pages.yml`, which publishes to the `gh-pages` branch. In repo **Settings → Pages**, set source to **Deploy from a branch**, branch **`gh-pages`**, folder **`/ (root)`**.
+npm run load-traffic -- 30 400
+```
+
+## Splunk setup
+
+Secrets live only in `.env.splunk` (gitignored). The collector loads them and forwards OTLP metrics to Splunk Observability Cloud. See `.env.splunk.example`.
+
+## Related lab
+
+The [MQ-O11y-Workshop](https://github.com/garrett-splunk/MQ-O11y-Workshop) repo covers the IBM Go **`mq_otel`** exporter track (`ibmmq.*` metrics).
+
+## Teardown
+
+```bash
+docker compose down -v
+```
+
+## License
+
+IBM MQ container requires `LICENSE=accept` (developer/education use). See [IBM MQ container license](https://github.com/ibm-messaging/mq-container).

@@ -1,0 +1,134 @@
+# IBM MQ → OpenTelemetry Java Contrib → Splunk Observability Cloud
+x-otel-environment: &otel-environment
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  DEPLOYMENT_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:-ibm-mq-lab}
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=${DEPLOYMENT_ENVIRONMENT:-ibm-mq-lab},deployment.environment=${DEPLOYMENT_ENVIRONMENT:-ibm-mq-lab},service.namespace=ibm-mq-java-otel-workshop,demo.name=mq-java-otel-workshop
+  OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+
+x-mq-environment: &mq-environment
+  MQ_QUEUE_MANAGER: ${MQ_QUEUE_MANAGER:-QM1}
+  MQ_CONN_NAME: ${MQ_CONN_NAME:-mq(1414)}
+  MQ_CHANNEL: ${MQ_CHANNEL:-DEV.APP.SVRCONN}
+  MQ_USER: ${MQ_USER:-app}
+  MQ_APP_PASSWORD: ${MQ_APP_PASSWORD:-passw0rd}
+  MQ_REQUEST_QUEUE: ${MQ_REQUEST_QUEUE:-ORDER.REQ}
+  MQ_RESPONSE_QUEUE: ${MQ_RESPONSE_QUEUE:-ORDER.RESP}
+
+services:
+  mq:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: mq/Dockerfile
+    environment:
+      LICENSE: accept
+      MQ_QMGR_NAME: ${MQ_QUEUE_MANAGER:-QM1}
+      MQ_DEV: "true"
+      MQ_ADMIN_PASSWORD: ${MQ_ADMIN_PASSWORD:-passw0rd}
+      MQ_APP_PASSWORD: ${MQ_APP_PASSWORD:-passw0rd}
+    ports:
+      - "1414:1414"
+      - "9443:9443"
+    volumes:
+      - qm1data:/mnt/mqm
+    healthcheck:
+      test: ["CMD", "chkmqready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  mq-tracing-setup:
+    image: busybox:1.36
+    depends_on:
+      mq:
+        condition: service_healthy
+    environment:
+      MQ_QMGR_NAME: ${MQ_QUEUE_MANAGER:-QM1}
+    volumes:
+      - qm1data:/mnt/mqm
+      - ./mq/mqtracingexit.conf:/etc/mqm/mqtracingexit.conf:ro
+      - ./mq/install-tracing-config.sh:/install-tracing-config.sh:ro
+    entrypoint: ["/bin/sh", "/install-tracing-config.sh"]
+    restart: "no"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./collector/otelcol-config.yaml:/etc/otelcol/config.yaml:ro
+    env_file:
+      - .env
+      - path: .env.splunk
+        required: false
+    environment:
+      DEPLOYMENT_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:-ibm-mq-lab}
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+
+  ibm-mq-java-metrics:
+    platform: linux/amd64
+    build:
+      context: ./ibm-mq-java-metrics
+    depends_on:
+      mq:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    environment:
+      MQ_HOST: mq
+      MQ_PORT: "1414"
+      MQ_CHANNEL: MQOTEL.SVRCONN
+      MQ_USER: ${MQ_USER:-app}
+      MQ_PASSWORD: ${MQ_APP_PASSWORD:-passw0rd}
+      OTLP_ENDPOINT: http://otel-collector:4318
+      SCRAPE_INTERVAL_SECONDS: "15"
+    restart: unless-stopped
+
+  order-producer:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: services/order-producer/Dockerfile
+    env_file: .env
+    environment:
+      <<: [*otel-environment, *mq-environment]
+      OTEL_SERVICE_NAME: order-producer
+      PORT: 8080
+    depends_on:
+      mq:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    ports:
+      - "8080:8080"
+
+  order-consumer:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: services/order-consumer/Dockerfile
+    env_file: .env
+    environment:
+      <<: [*otel-environment, *mq-environment]
+      OTEL_SERVICE_NAME: order-consumer
+      PORT: 8081
+    depends_on:
+      mq:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    ports:
+      - "8081:8081"
+
+  workshop-site:
+    image: nginx:alpine
+    volumes:
+      - ./workshop-site:/usr/share/nginx/html:ro
+    ports:
+      - "8091:80"
+
+volumes:
+  qm1data:

@@ -15,6 +15,7 @@
       </a>
       <div class="header-actions">
         <a class="header-doc-link" href="https://garrett-splunk.github.io/MQ-O11y-Workshop/" target="_blank" rel="noopener">Main lab (mq_otel)</a>
+        <a class="header-doc-link" href="https://github.com/garrett-splunk/MQ-Java-Otel-Workshop" target="_blank" rel="noopener">GitHub repo</a>
         <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
           <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="4"/></svg>
           <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -28,20 +29,23 @@
   <div class="page">
     <aside class="sidebar" aria-label="Lab steps">
       <p class="sidebar__sub">Workshop</p>
-      <p class="sidebar__hint">Java Contrib · ~20–30 min after main Steps 1–6</p>
+      <p class="sidebar__hint">Java Contrib · follow in order · ~45–60 min</p>
       <ul class="sidebar-tree">
         <li><a href="#overview" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> Overview</a></li>
         <li><a href="#compare" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> vs mq_otel</a></li>
         <li><a href="#prereqs" class="sidebar-tree__link" data-step="1"><span class="sidebar-tree__num">1</span> Prerequisites</a></li>
-        <li><a href="#disable-go" class="sidebar-tree__link" data-step="2"><span class="sidebar-tree__num">2</span> Disable mq_otel (optional)</a></li>
-        <li><a href="#start-java" class="sidebar-tree__link" data-step="3"><span class="sidebar-tree__num">3</span> Start Java exporter</a></li>
-        <li><a href="#verify" class="sidebar-tree__link" data-step="4"><span class="sidebar-tree__num">4</span> Verify metrics</a></li>
-        <li><a href="#splunk" class="sidebar-tree__link" data-step="5"><span class="sidebar-tree__num">5</span> Splunk Observability Cloud</a></li>
+        <li><a href="#step-clone" class="sidebar-tree__link" data-step="2"><span class="sidebar-tree__num">2</span> Clone repo</a></li>
+        <li><a href="#step-splunk-token" class="sidebar-tree__link" data-step="3"><span class="sidebar-tree__num">3</span> Splunk token</a></li>
+        <li><a href="#step-env" class="sidebar-tree__link" data-step="4"><span class="sidebar-tree__num">4</span> Lab env</a></li>
+        <li><a href="#step-start" class="sidebar-tree__link" data-step="5"><span class="sidebar-tree__num">5</span> Start stack</a></li>
+        <li><a href="#step-verify" class="sidebar-tree__link" data-step="6"><span class="sidebar-tree__num">6</span> Verify stack</a></li>
+        <li><a href="#step-traffic" class="sidebar-tree__link" data-step="7"><span class="sidebar-tree__num">7</span> Generate traffic</a></li>
+        <li><a href="#step-splunk" class="sidebar-tree__link" data-step="8"><span class="sidebar-tree__num">8</span> Splunk Observability Cloud</a></li>
         <li><a href="#troubleshoot" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">?</span> Troubleshooting</a></li>
       </ul>
       <div class="sidebar-footer">
+        <a href="https://github.com/garrett-splunk/MQ-Java-Otel-Workshop" target="_blank" rel="noopener">Clone on GitHub</a>
         <a href="https://garrett-splunk.github.io/MQ-O11y-Workshop/" target="_blank" rel="noopener">Main lab (mq_otel)</a>
-        <a href="https://github.com/garrett-splunk/MQ-O11y-Workshop" target="_blank" rel="noopener">Lab repo on GitHub</a>
       </div>
     </aside>
 
@@ -50,28 +54,26 @@
         <p class="eyebrow">Hands-on lab · OpenTelemetry Java Contrib · Splunk Observability Cloud</p>
         <h1>IBM MQ metrics with OpenTelemetry Java Contrib</h1>
         <p class="lead">
-          Export IBM MQ queue and queue-manager metrics using the community
-          <a href="https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics" target="_blank" rel="noopener">OpenTelemetry Java Contrib <code>ibm-mq-metrics</code></a>
-          PCF monitor. Metrics arrive in Splunk Observability Cloud with the <code>ibm.mq.*</code> naming convention.
+          Clone this repo, run IBM MQ locally, export queue metrics with
+          <a href="https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics" target="_blank" rel="noopener">OpenTelemetry Java Contrib <code>ibm-mq-metrics</code></a>,
+          and view <code>ibm.mq.*</code> metrics in Splunk Observability Cloud.
         </p>
         <div class="callout callout--concept">
-          <p class="callout__title">Lab stack</p>
-          <p>This workshop uses the same Docker Compose stack as the <a href="https://garrett-splunk.github.io/MQ-O11y-Workshop/" target="_blank" rel="noopener">main IBM MQ lab</a> (<a href="https://github.com/garrett-splunk/MQ-O11y-Workshop" target="_blank" rel="noopener">MQ-O11y-Workshop</a>). Complete the main lab Steps 1–6 first, then return here for the Java exporter track.</p>
+          <p class="callout__title">Everything you need is in this repo</p>
+          <p>Docker Compose stack (MQ, Java exporter sidecar, OTel collector, sample apps), config files, and this guided site. No second repo required.</p>
         </div>
       </header>
 
       <section id="compare">
-        <h2>How this track differs from the main lab</h2>
+        <h2>How this lab differs from the main IBM MQ workshop</h2>
         <table class="info-table">
-          <thead><tr><th></th><th>Main lab (<code>mq_otel</code>)</th><th>This track (Java Contrib)</th></tr></thead>
+          <thead><tr><th></th><th><a href="https://garrett-splunk.github.io/MQ-O11y-Workshop/" target="_blank" rel="noopener">Main lab</a> (<code>mq_otel</code>)</th><th>This lab (Java Contrib)</th></tr></thead>
           <tbody>
-            <tr><td>Workshop site</td><td><a href="https://garrett-splunk.github.io/MQ-O11y-Workshop/" target="_blank" rel="noopener">MQ-O11y-Workshop</a></td><td>This site</td></tr>
-            <tr><td>Exporter</td><td>IBM Go <code>mq_otel</code> (embedded in MQ container)</td><td><a href="https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics" target="_blank" rel="noopener">opentelemetry-java-contrib/ibm-mq-metrics</a></td></tr>
-            <tr><td>Metric prefix</td><td><code>ibmmq.queue.depth</code>, etc.</td><td><code>ibm.mq.queue.depth</code>, etc.</td></tr>
-            <tr><td>Connection</td><td>Bindings (in-process with queue manager)</td><td>TCP client to <code>mq:1414</code> via <code>MQOTEL.SVRCONN</code></td></tr>
-            <tr><td>Compose profile</td><td>Default (<code>docker compose up</code>)</td><td><code>--profile java-contrib</code></td></tr>
-            <tr><td>Splunk filter</td><td>Search <code>ibmmq</code></td><td>Search <code>ibm.mq</code></td></tr>
-            <tr><td>Environment tag</td><td colspan="2"><code>deployment.environment:ibm-mq-lab</code> (same collector)</td></tr>
+            <tr><td>Repo</td><td><a href="https://github.com/garrett-splunk/MQ-O11y-Workshop" target="_blank" rel="noopener">MQ-O11y-Workshop</a></td><td><a href="https://github.com/garrett-splunk/MQ-Java-Otel-Workshop" target="_blank" rel="noopener">MQ-Java-Otel-Workshop</a></td></tr>
+            <tr><td>Exporter</td><td>IBM Go <code>mq_otel</code> (embedded in MQ container)</td><td>Java Contrib sidecar (<code>ibm-mq-java-metrics</code>)</td></tr>
+            <tr><td>Metric prefix</td><td><code>ibmmq.queue.depth</code></td><td><code>ibm.mq.queue.depth</code></td></tr>
+            <tr><td>Splunk search</td><td><code>ibmmq</code></td><td><code>ibm.mq</code></td></tr>
+            <tr><td>Environment tag</td><td colspan="2"><code>deployment.environment:ibm-mq-lab</code></td></tr>
           </tbody>
         </table>
       </section>
@@ -79,88 +81,109 @@
       <section id="prereqs">
         <div class="step-meta"><span class="step-badge">Step 1</span><span class="step-time">~5 min</span></div>
         <h2>Prerequisites</h2>
-        <p>Complete <strong>Steps 1–6</strong> of the <a href="https://garrett-splunk.github.io/MQ-O11y-Workshop/#step-verify" target="_blank" rel="noopener">main workshop</a> first:</p>
         <ul>
-          <li>Clone <a href="https://github.com/garrett-splunk/MQ-O11y-Workshop" target="_blank" rel="noopener">MQ-O11y-Workshop</a> and add your Splunk Observability Cloud token to <code>.env.splunk</code></li>
-          <li><code>docker compose up --build -d</code> with healthy MQ and collector</li>
-          <li><code>bash scripts/verify-stack.sh</code> passing</li>
+          <li><strong>Docker Desktop</strong> (or Docker Engine + Compose v2)</li>
+          <li><strong>Git</strong></li>
+          <li><strong>Splunk Observability Cloud</strong> ingest token (facilitator-provided or your org’s token)</li>
+          <li><strong>Node.js 20+</strong> (optional — for <code>npm run load-traffic</code> only)</li>
         </ul>
-        <p>The same OTel collector forwards both exporters to Splunk Observability Cloud — no collector changes required.</p>
+        <p class="muted">Apple Silicon: services use <code>linux/amd64</code>; first build of <code>ibm-mq-java-metrics</code> (Gradle) can take 10–15 minutes.</p>
       </section>
 
-      <section id="disable-go">
-        <div class="step-meta"><span class="step-badge">Step 2</span><span class="step-time">~2 min · optional</span></div>
-        <h2>Disable the embedded <code>mq_otel</code> exporter (recommended)</h2>
-        <p>By default the MQ container runs IBM’s Go exporter alongside QM1. For a clean comparison, stop it so only Java Contrib metrics appear under <code>ibm.mq</code>.</p>
+      <section id="step-clone">
+        <div class="step-meta"><span class="step-badge">Step 2</span><span class="step-time">~2 min</span></div>
+        <h2>Clone the repo</h2>
         <div class="code-block">
-          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-disable-go">Copy</button></div>
-          <pre><code id="cmd-disable-go">cd ~/projects/ibm-mq-o11y-lab
-DISABLE_MQ_OTEL=true docker compose up -d --force-recreate mq</code></pre>
+          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-clone">Copy</button></div>
+          <pre><code id="cmd-clone">git clone https://github.com/garrett-splunk/MQ-Java-Otel-Workshop.git
+cd MQ-Java-Otel-Workshop</code></pre>
         </div>
-        <p>Confirm <code>mq_otel</code> is not running:</p>
-        <div class="code-block">
-          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-check-go">Copy</button></div>
-          <pre><code id="cmd-check-go">docker compose logs mq 2>&1 | tail -20
-# Should NOT show "Starting mq_otel metrics exporter"</code></pre>
-        </div>
-        <p class="muted">Skip this step if you want both exporters running (you will see both <code>ibmmq.*</code> and <code>ibm.mq.*</code> in Metric Explorer).</p>
       </section>
 
-      <section id="start-java">
-        <div class="step-meta"><span class="step-badge">Step 3</span><span class="step-time">~10–15 min first build</span></div>
-        <h2>Build and start the Java Contrib exporter</h2>
-        <p>In the <a href="https://github.com/garrett-splunk/MQ-O11y-Workshop" target="_blank" rel="noopener">MQ-O11y-Workshop</a> repo, the service lives in <code>ibm-mq-java-metrics/</code>. The Dockerfile clones <code>opentelemetry-java-contrib</code> at tag <code>v1.59.0</code>, builds the shadow JAR, and runs PCF collection in client mode every 15 seconds.</p>
+      <section id="step-splunk-token">
+        <div class="step-meta"><span class="step-badge">Step 3</span><span class="step-time">~5 min</span></div>
+        <h2>Splunk Observability Cloud token</h2>
         <div class="code-block">
-          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-start-java">Copy</button></div>
-          <pre><code id="cmd-start-java">cd ~/projects/ibm-mq-o11y-lab
-docker compose --profile java-contrib build ibm-mq-java-metrics
-docker compose --profile java-contrib up -d ibm-mq-java-metrics</code></pre>
+          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-splunk">Copy</button></div>
+          <pre><code id="cmd-splunk">cp .env.splunk.example .env.splunk
+vi .env.splunk</code></pre>
         </div>
-        <p>Watch startup (Gradle build happens on first <code>build</code>; allow several minutes on Apple Silicon under amd64 emulation):</p>
+        <p>Replace <code>your-ingest-token-here</code> with your ingest token. Match <code>SPLUNK_REALM</code> and URLs to your org (us1, eu0, etc.). Never commit <code>.env.splunk</code>.</p>
         <div class="code-block">
-          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-logs-java">Copy</button></div>
-          <pre><code id="cmd-logs-java">docker compose --profile java-contrib logs -f ibm-mq-java-metrics</code></pre>
+          <div class="code-block__header"><span>Verify (no token printed)</span><button class="btn-copy" data-copy="cmd-splunk-test">Copy</button></div>
+          <pre><code id="cmd-splunk-test">test -f .env.splunk && echo "OK: .env.splunk present"
+grep -q 'your-ingest-token-here' .env.splunk && echo "WARN: replace placeholder token" || echo "OK: token line edited"</code></pre>
         </div>
-        <p>Configuration is rendered from <code>ibm-mq-java-metrics/config.lab.yml</code> at runtime (MQ host, channel, OTLP endpoint). Queue filters include <code>ORDER.*</code> and <code>DEV.QUEUE.*</code>.</p>
       </section>
 
-      <section id="verify">
-        <div class="step-meta"><span class="step-badge">Step 4</span><span class="step-time">~5 min</span></div>
-        <h2>Verify metrics reach the collector</h2>
+      <section id="step-env">
+        <div class="step-meta"><span class="step-badge">Step 4</span><span class="step-time">~2 min</span></div>
+        <h2>Lab environment</h2>
         <div class="code-block">
-          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-collector-metrics">Copy</button></div>
-          <pre><code id="cmd-collector-metrics">curl -s http://localhost:13133/metrics | grep -E 'otelcol_receiver_accepted_metric_points|ibm\.mq' | head -20</code></pre>
+          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-env">Copy</button></div>
+          <pre><code id="cmd-env">cp .env.example .env</code></pre>
         </div>
-        <p>Generate traffic so queue depth moves (same as main lab Step 8):</p>
+        <p>Default demo MQ password is <code>passw0rd</code> (<code>MQ_APP_PASSWORD</code> in <code>.env</code>). The Java exporter uses the same credentials via Compose environment variables.</p>
+      </section>
+
+      <section id="step-start">
+        <div class="step-meta"><span class="step-badge">Step 5</span><span class="step-time">~10–20 min first build</span></div>
+        <h2>Start the stack</h2>
+        <p>Builds and starts: IBM MQ, OpenTelemetry Collector, <strong>ibm-mq-java-metrics</strong> sidecar, order producer/consumer, and the local workshop site.</p>
+        <div class="code-block">
+          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-up">Copy</button></div>
+          <pre><code id="cmd-up">docker compose up --build -d</code></pre>
+        </div>
+        <p>Watch the Java exporter (Gradle build on first run):</p>
+        <div class="code-block">
+          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-logs">Copy</button></div>
+          <pre><code id="cmd-logs">docker compose logs -f ibm-mq-java-metrics</code></pre>
+        </div>
+        <div class="callout callout--info">
+          <p class="callout__title">What gets deployed</p>
+          <p><code>ibm-mq-java-metrics/</code> clones <code>opentelemetry-java-contrib</code> v1.59.0, builds the shadow JAR, and scrapes MQ via PCF every 15s. Config template: <code>ibm-mq-java-metrics/config.lab.yml</code>.</p>
+        </div>
+      </section>
+
+      <section id="step-verify">
+        <div class="step-meta"><span class="step-badge">Step 6</span><span class="step-time">~5 min</span></div>
+        <h2>Verify the stack</h2>
+        <div class="code-block">
+          <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-verify">Copy</button></div>
+          <pre><code id="cmd-verify">bash scripts/verify-stack.sh</code></pre>
+        </div>
+        <p>Checks producer/consumer health, collector, workshop site, Java metrics container, and a sample order.</p>
+        <p>Local workshop UI: <a href="http://localhost:8091">http://localhost:8091</a> · MQ console: <a href="http://localhost:9443/ibmmq/console">http://localhost:9443/ibmmq/console</a> (<code>admin</code> / password from <code>.env</code>)</p>
+      </section>
+
+      <section id="step-traffic">
+        <div class="step-meta"><span class="step-badge">Step 7</span><span class="step-time">~5 min</span></div>
+        <h2>Generate traffic</h2>
         <div class="code-block">
           <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-traffic">Copy</button></div>
           <pre><code id="cmd-traffic">curl -X POST http://localhost:8080/orders \
   -H "Content-Type: application/json" \
-  -d '{"productId":"SKU-JAVA","quantity":1}'
+  -H "X-Correlation-Id: demo-1" \
+  -d '{"productId":"SKU-JAVA","quantity":2}'
 
-npm run load-traffic -- 20 300</code></pre>
+npm run load-traffic -- 30 400</code></pre>
         </div>
+        <p>Queue depth on <code>ORDER.REQ</code> should change — visible in <code>ibm.mq.queue.depth</code> after the next scrape.</p>
       </section>
 
-      <section id="splunk">
-        <div class="step-meta"><span class="step-badge">Step 5</span><span class="step-time">~10 min</span></div>
+      <section id="step-splunk">
+        <div class="step-meta"><span class="step-badge">Step 8</span><span class="step-time">~10 min</span></div>
         <h2>Find metrics in Splunk Observability Cloud</h2>
         <ol class="checklist">
           <li>Open <strong>Metrics</strong> → <strong>Metric Explorer</strong>.</li>
           <li>Filter: <code>deployment.environment:ibm-mq-lab</code></li>
           <li>Search metric names containing <code>ibm.mq</code> (not <code>ibmmq</code>).</li>
-          <li>Chart <code>ibm.mq.queue.depth</code> and filter dimension <code>queue = ORDER.REQ</code> if available.</li>
-          <li>Optional: compare with main-track names (<code>ibmmq.queue.depth</code>) if you skipped Step 2.</li>
+          <li>Chart <code>ibm.mq.queue.depth</code>; filter dimension <code>queue = ORDER.REQ</code> if available.</li>
         </ol>
         <div class="callout callout--info">
-          <p class="callout__title">Resource attributes</p>
-          <p>Java Contrib sets queue manager and object dimensions on each metric (for example <code>queue</code>, <code>queue_manager</code>). Exact dimension names may differ slightly from <code>mq_otel</code> — use Metric Explorer’s dimension picker after selecting a metric.</p>
+          <p class="callout__title">Upstream reference</p>
+          <p><a href="https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics" target="_blank" rel="noopener">ibm-mq-metrics README</a> — full metric list and production configuration options.</p>
         </div>
-        <h3>Upstream reference</h3>
-        <ul>
-          <li><a href="https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics" target="_blank" rel="noopener">ibm-mq-metrics README</a> — full metric list and production config</li>
-          <li><a href="https://github.com/signalfx/opentelemetry-ibm-mq-monitoring" target="_blank" rel="noopener">Legacy SignalFx repo</a> (donated to OTel Java Contrib)</li>
-        </ul>
       </section>
 
       <section id="troubleshoot">
@@ -169,31 +192,29 @@ npm run load-traffic -- 20 300</code></pre>
           <thead><tr><th>Symptom</th><th>Things to check</th></tr></thead>
           <tbody>
             <tr>
-              <td>Java container exits on build</td>
-              <td>Ensure network access for Gradle/Git during <code>docker compose build</code>. On Apple Silicon, build uses <code>linux/amd64</code> — allow extra time.</td>
+              <td><code>ibm-mq-java-metrics</code> build fails</td>
+              <td>Network for Git/Gradle during <code>docker compose build</code>. Allow extra time on Apple Silicon (amd64 emulation).</td>
             </tr>
             <tr>
-              <td>MQ connection / auth errors</td>
-              <td>Channel <code>MQOTEL.SVRCONN</code> and user <code>app</code> are defined in <code>mq/20-lab-connect.mqsc</code>. Password must match <code>MQ_APP_PASSWORD</code> in <code>.env</code>.</td>
+              <td>MQ auth errors in Java logs</td>
+              <td>Channel <code>MQOTEL.SVRCONN</code> in <code>mq/20-lab-connect.mqsc</code>; password matches <code>MQ_APP_PASSWORD</code> in <code>.env</code>.</td>
             </tr>
             <tr>
               <td>No <code>ibm.mq</code> in Splunk</td>
-              <td>Collector health on <code>:13133</code>; <code>.env.splunk</code> token; wait 1–2 scrape intervals (15s) after startup plus collector batch (5s).</td>
+              <td><code>.env.splunk</code> token; collector on <code>:13133</code>; wait 1–2 scrape intervals (15s) plus batch (5s).</td>
             </tr>
             <tr>
-              <td>Duplicate metrics</td>
-              <td>Set <code>DISABLE_MQ_OTEL=true</code> and recreate <code>mq</code> (Step 2) so only Java Contrib exports.</td>
-            </tr>
-            <tr>
-              <td>Still see <code>ibmmq</code> only</td>
-              <td>Main track exporter still running — complete Step 2 or stop comparing and search both prefixes.</td>
+              <td><code>verify-stack.sh</code> fails on Java container</td>
+              <td><code>docker compose logs ibm-mq-java-metrics</code> — container may still be building on first start.</td>
             </tr>
           </tbody>
         </table>
         <div class="callout">
-          <p class="callout__title">Return to the main lab</p>
-          <p>To switch back to the default <code>mq_otel</code> track: <code>docker compose --profile java-contrib stop ibm-mq-java-metrics</code>, then <code>DISABLE_MQ_OTEL=false docker compose up -d --force-recreate mq</code>.</p>
-          <p><a href="https://garrett-splunk.github.io/MQ-O11y-Workshop/" target="_blank" rel="noopener"><strong>← Main workshop (mq_otel track)</strong></a></p>
+          <p class="callout__title">Teardown</p>
+          <div class="code-block">
+            <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-down">Copy</button></div>
+            <pre><code id="cmd-down">docker compose down -v</code></pre>
+          </div>
         </div>
       </section>
     </main>
