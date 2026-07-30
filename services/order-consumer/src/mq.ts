@@ -76,27 +76,33 @@ export function putMessage(
   });
 }
 
-export function getMessage(hObj: mq.MQObject, waitIntervalMs = 5000): Promise<{ body: string; msgId: string; correlId: string }> {
-  return new Promise((resolve, reject) => {
-    const md = new mq.MQMD();
-    const gmo = new mq.MQGMO();
-    gmo.Options = MQC.MQGMO_WAIT | MQC.MQGMO_CONVERT;
-    gmo.WaitInterval = waitIntervalMs;
+function extractMessageBody(buf: Buffer, len: number): string {
+  const raw = buf.toString('utf8', 0, len);
+  const jsonStart = raw.indexOf('{');
+  return jsonStart >= 0 ? raw.slice(jsonStart) : raw;
+}
 
-    mq.Get(hObj, md, gmo, (err, _obj, _gmo, outMd, buf) => {
-      if (err) {
+export function getMessage(hObj: mq.MQObject, waitIntervalMs = 5000): Promise<{ body: string; msgId: string; correlId: string }> {
+  // ibmmq async Get() callbacks can hang under linux/amd64 emulation (Docker Desktop on Apple Silicon).
+  // GetSync is reliable for this lab; run off the main tick so health checks stay responsive.
+  return new Promise((resolve, reject) => {
+    setImmediate(() => {
+      const md = new mq.MQMD();
+      const gmo = new mq.MQGMO();
+      gmo.Options = MQC.MQGMO_WAIT | MQC.MQGMO_CONVERT;
+      gmo.WaitInterval = waitIntervalMs;
+      const buf = Buffer.alloc(1024 * 64);
+
+      try {
+        const len = mq.GetSync(hObj, md, gmo, buf);
+        resolve({
+          body: extractMessageBody(buf, len),
+          msgId: bufToHex(md.MsgId),
+          correlId: bufToHex(md.CorrelId),
+        });
+      } catch (err) {
         reject(err);
-        return;
       }
-      if (!buf || !outMd) {
-        reject(new Error('Empty MQ GET response'));
-        return;
-      }
-      resolve({
-        body: buf.toString('utf8'),
-        msgId: bufToHex(outMd.MsgId),
-        correlId: bufToHex(outMd.CorrelId),
-      });
     });
   });
 }
