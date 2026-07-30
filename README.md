@@ -35,7 +35,7 @@ curl -X POST http://localhost:8080/orders \
   -H "X-Correlation-Id: demo-1" \
   -d '{"productId":"SKU-100","quantity":2}'
 
-npm run load-traffic -- 30 400
+bash scripts/load-traffic.sh 30 400
 ```
 
 ## Splunk setup

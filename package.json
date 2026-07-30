@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "npm run build -w @mq-lab/shared && npm run build -w @mq-lab/order-producer && npm run build -w @mq-lab/order-consumer",
-    "load-traffic": "tsx scripts/load-traffic.ts",
+    "load-traffic": "bash scripts/load-traffic.sh",
     "verify": "bash scripts/verify-stack.sh"
   },
   "devDependencies": {
