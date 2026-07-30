@@ -113,7 +113,7 @@
           <li><strong>Docker Desktop</strong> (or Docker Engine + Compose v2)</li>
           <li><strong>Git</strong></li>
           <li><strong>Splunk Observability Cloud</strong> ingest token (facilitator-provided or your org’s token)</li>
-          <li><strong>Node.js 20+</strong> (optional — for <code>npm run load-traffic</code> only)</li>
+          <li><strong>Node.js 20+</strong> (optional — not required; traffic script uses <code>curl</code>)</li>
         </ul>
         <p class="muted">Apple Silicon: services use <code>linux/amd64</code>. The Java metrics image downloads prebuilt JARs from Maven Central (no Gradle compile).</p>
       </section>
@@ -195,7 +195,10 @@ grep -q 'your-ingest-token-here' .env.splunk && echo "WARN: replace placeholder 
   -H "X-Correlation-Id: demo-1" \
   -d '{"productId":"SKU-JAVA","quantity":2}'
 
-npm run load-traffic -- 30 400</code></pre>
+npm run load-traffic -- 30 400
+
+# or without npm:
+bash scripts/load-traffic.sh 30 400</code></pre>
         </div>
         <p>Queue depth on <code>ORDER.REQ</code> should change — visible in <code>ibm.mq.queue.depth</code> after the next scrape.</p>
       </section>
