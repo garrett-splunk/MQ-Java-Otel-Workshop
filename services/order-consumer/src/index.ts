@@ -6,6 +6,7 @@ import { connect, loadMqConfig, openQueue, getMessage, disconnect, MQC } from '.
 const SERVICE_NAME = 'order-consumer';
 const log = createLogger(SERVICE_NAME);
 const tracer = trace.getTracer(SERVICE_NAME);
+const inventoryUrl = process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:8082';
 
 const app = express();
 bootstrapService({ app, serviceName: SERVICE_NAME });
@@ -44,6 +45,38 @@ async function consumeLoop(): Promise<void> {
               correlationIdMq: msg.correlId,
               orderId: order.orderId,
               productId: order.productId,
+            });
+
+            await tracer.startActiveSpan('inventory.fulfill', async (fulfillSpan) => {
+              const orderId = String(order.orderId ?? msg.correlId ?? 'unknown');
+              const productId = String(order.productId ?? 'SKU-100');
+              const quantity = Number(order.quantity ?? 1);
+              fulfillSpan.setAttribute('order.id', orderId);
+              fulfillSpan.setAttribute('inventory.product_id', productId);
+              try {
+                const fulfillRes = await fetch(`${inventoryUrl}/fulfill`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Correlation-Id': orderId,
+                  },
+                  body: JSON.stringify({ orderId, productId, quantity }),
+                });
+                if (!fulfillRes.ok) {
+                  fulfillSpan.setStatus({
+                    code: SpanStatusCode.ERROR,
+                    message: `inventory fulfill ${fulfillRes.status}`,
+                  });
+                  log.warn('Inventory fulfill failed', { orderId, status: fulfillRes.status });
+                }
+              } catch (err) {
+                const error = err as Error;
+                fulfillSpan.recordException(error);
+                fulfillSpan.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+                log.warn('Inventory fulfill error', { orderId, error: error.message });
+              } finally {
+                fulfillSpan.end();
+              }
             });
           } catch (err) {
             const error = err as Error & { mqrc?: number };

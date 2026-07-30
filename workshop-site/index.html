@@ -94,9 +94,13 @@
         <div class="flow-diagram" role="img" aria-label="Observability flow">
           <div class="flow-node"><div class="flow-title">order-producer</div><div class="flow-sub">traces · logs</div></div>
           <div class="flow-arrow"><span>→</span></div>
+          <div class="flow-node"><div class="flow-title">inventory-service</div><div class="flow-sub">stock check · fulfill</div></div>
+          <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node flow-node-accent"><div class="flow-title">IBM MQ</div><div class="flow-sub">Java metrics · tracing exit</div></div>
           <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node"><div class="flow-title">order-consumer</div><div class="flow-sub">traces · logs</div></div>
+          <div class="flow-arrow"><span>→</span></div>
+          <div class="flow-node"><div class="flow-title">inventory-service</div><div class="flow-sub">decrement stock</div></div>
           <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node"><div class="flow-title">ibm-mq-java-metrics</div><div class="flow-sub">ibm.mq.* metrics</div></div>
           <div class="flow-arrow"><span>→</span></div>
@@ -152,13 +156,13 @@ grep -q 'your-ingest-token-here' .env.splunk && echo "WARN: replace placeholder 
           <pre><code id="cmd-env">cp .env.example .env</code></pre>
         </div>
         <p>Default demo MQ password is <code>passw0rd</code> (<code>MQ_APP_PASSWORD</code> in <code>.env</code>). The Java exporter uses the same credentials via Compose environment variables.</p>
-        <p><code>OTEL_SDK_DISABLED=false</code> (default) turns on OTLP traces and logs from <code>order-producer</code> and <code>order-consumer</code> for the APM exercises in Step 9. Set <code>true</code> only if you want metrics-only locally.</p>
+        <p><code>OTEL_SDK_DISABLED=false</code> (default) turns on OTLP traces and logs from <code>order-producer</code>, <code>inventory-service</code>, and <code>order-consumer</code> for the APM exercises in Step 9. Set <code>true</code> only if you want metrics-only locally.</p>
       </section>
 
       <section id="step-start">
         <div class="step-meta"><span class="step-badge">Step 5</span><span class="step-time">~10–20 min first build</span></div>
         <h2>Start the stack</h2>
-        <p>Builds and starts: IBM MQ, OpenTelemetry Collector, <strong>ibm-mq-java-metrics</strong> sidecar, order producer/consumer, and the local workshop site.</p>
+        <p>Builds and starts: IBM MQ, OpenTelemetry Collector, <strong>ibm-mq-java-metrics</strong> sidecar, order producer/consumer, inventory service, and the local workshop site.</p>
         <div class="code-block">
           <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-up">Copy</button></div>
           <pre><code id="cmd-up">docker compose up --build -d</code></pre>
@@ -234,7 +238,7 @@ curl -v -X POST http://localhost:8080/orders \
   -d '{"productId":"SKU-APM","quantity":1}'
 echo "Correlation ID: ${CORR_ID}"</code></pre>
         </div>
-        <p>Expect <code>202 accepted</code>. The producer creates a span named <code>mq.put.order</code>; the consumer creates <code>mq.get.order</code> when it reads the message.</p>
+        <p>Expect <code>202 accepted</code>. The producer calls <code>inventory-service</code> to verify stock, then creates a span named <code>mq.put.order</code>; the consumer creates <code>mq.get.order</code> when it reads the message and calls inventory again to fulfill the order.</p>
 
         <h3>9b — Confirm traces reach the collector</h3>
         <div class="code-block">
@@ -247,11 +251,11 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
         <ol class="checklist">
           <li>Open <strong>APM</strong> → <strong>Services</strong> (or <strong>Traces</strong>).</li>
           <li>Set environment filter: <code>deployment.environment:ibm-mq-lab</code></li>
-          <li>Locate services <code>order-producer</code> and <code>order-consumer</code>.</li>
-          <li>Open <strong>Traces</strong> for <code>order-producer</code>; look for spans <code>POST /orders</code> and <code>mq.put.order</code>.</li>
+          <li>Locate services <code>order-producer</code>, <code>inventory-service</code>, and <code>order-consumer</code>.</li>
+          <li>Open <strong>Traces</strong> for <code>order-producer</code>; look for spans <code>POST /orders</code>, <code>inventory.check</code>, and <code>mq.put.order</code>.</li>
           <li>Inspect attributes: <code>messaging.system=ibmmq</code>, <code>messaging.destination.name=ORDER.REQ</code>, <code>order.product_id</code>.</li>
-          <li>Open traces for <code>order-consumer</code> and find <code>mq.get.order</code> spans on the same timeline.</li>
-          <li>Optional: open the <strong>Service map</strong> — you should see edges between producer, consumer, and (if MQ tracing exit is enabled) IBM MQ.</li>
+          <li>Open traces for <code>order-consumer</code> and find <code>mq.get.order</code> and <code>inventory.fulfill</code> spans.</li>
+          <li>Open the <strong>Service map</strong> — you should see <code>order-producer</code> → <code>inventory-service</code>, producer → IBM MQ → consumer, and consumer → <code>inventory-service</code> (plus MQ tracing exit spans if enabled).</li>
         </ol>
         <div class="callout callout--info">
           <p class="callout__title">Correlation ID</p>
@@ -285,7 +289,7 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
         <ol class="checklist">
           <li>Open <strong>Log Observer</strong> (or Logs).</li>
           <li>Filter: <code>deployment.environment:ibm-mq-lab</code></li>
-          <li>Search: <code>service.name:order-producer</code> or <code>service.name:order-consumer</code></li>
+          <li>Search: <code>service.name:order-producer</code>, <code>service.name:inventory-service</code>, or <code>service.name:order-consumer</code></li>
           <li>Find log lines like <code>Order message published to IBM MQ</code> / <code>Order message consumed from IBM MQ</code>.</li>
           <li>Match the <code>correlationId</code> field from Step 9a across producer and consumer logs.</li>
         </ol>
@@ -314,7 +318,15 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
             </tr>
             <tr>
               <td>No traces in APM</td>
-              <td>Confirm <code>OTEL_SDK_DISABLED=false</code> in <code>.env</code>, then <code>docker compose up -d --force-recreate order-producer order-consumer</code>. Check collector: Step 9b. Wait 30–60s after traffic.</td>
+              <td>Confirm <code>OTEL_SDK_DISABLED=false</code> in <code>.env</code>, then <code>docker compose up -d --force-recreate order-producer order-consumer inventory-service</code>. Check collector: Step 9b. Wait 30–60s after traffic.</td>
+            </tr>
+            <tr>
+              <td><code>503 Inventory service unavailable</code></td>
+              <td><code>curl http://localhost:8082/health</code> — ensure <code>inventory-service</code> is running. Producer waits for inventory before MQ PUT.</td>
+            </tr>
+            <tr>
+              <td><code>409 Insufficient inventory</code></td>
+              <td>Expected if stock is exhausted for a SKU. Restart <code>inventory-service</code> to reset in-memory stock, or use another <code>productId</code> (e.g. <code>SKU-100</code>).</td>
             </tr>
             <tr>
               <td>Services missing in APM</td>

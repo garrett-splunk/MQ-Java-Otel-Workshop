@@ -12,6 +12,7 @@ import { connect, loadMqConfig, openQueue, putMessage, disconnect, MQC } from '.
 const SERVICE_NAME = 'order-producer';
 const log = createLogger(SERVICE_NAME);
 const tracer = trace.getTracer(SERVICE_NAME);
+const inventoryUrl = process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:8082';
 
 const app = express();
 app.use(express.json());
@@ -41,49 +42,80 @@ app.post(
       submittedAt: new Date().toISOString(),
     });
 
-    await tracer.startActiveSpan('mq.put.order', async (span) => {
-      span.setAttribute('messaging.system', 'ibmmq');
-      span.setAttribute('messaging.destination.name', queueName);
-      span.setAttribute('order.product_id', productId);
-      span.setAttribute('order.quantity', quantity);
-
-      const config = loadMqConfig();
-      let hConn: Awaited<ReturnType<typeof connect>> | undefined;
+    await tracer.startActiveSpan('inventory.check', async (checkSpan) => {
+      checkSpan.setAttribute('inventory.product_id', productId);
+      checkSpan.setAttribute('order.quantity', quantity);
       try {
-        hConn = await connect(config);
-        const hQueue = await openQueue(hConn, queueName, MQC.MQOO_OUTPUT | MQC.MQOO_FAIL_IF_QUIESCING);
-        const { msgId } = await putMessage(hQueue, Buffer.from(payload, 'utf8'), correlationId);
-        span.setAttribute('messaging.message_id', msgId.toString('hex'));
-
-        log.info('Order message published to IBM MQ', {
-          correlationId,
-          queue: queueName,
-          msgId: msgId.toString('hex'),
-          productId,
-          quantity,
+        const checkRes = await fetch(`${inventoryUrl}/check`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Correlation-Id': correlationId,
+          },
+          body: JSON.stringify({ productId, quantity }),
         });
+        if (!checkRes.ok) {
+          const detail = await checkRes.text();
+          checkSpan.setStatus({ code: SpanStatusCode.ERROR, message: `inventory check ${checkRes.status}` });
+          res.status(checkRes.status === 409 ? 409 : 503).json({
+            error: checkRes.status === 409 ? 'Insufficient inventory' : 'Inventory service unavailable',
+            detail: detail.slice(0, 200),
+          });
+          return;
+        }
 
-        res.status(202).json({
-          status: 'accepted',
-          queue: queueName,
-          orderId: correlationId,
-          msgId: msgId.toString('hex'),
+        await tracer.startActiveSpan('mq.put.order', async (span) => {
+          span.setAttribute('messaging.system', 'ibmmq');
+          span.setAttribute('messaging.destination.name', queueName);
+          span.setAttribute('order.product_id', productId);
+          span.setAttribute('order.quantity', quantity);
+
+          const config = loadMqConfig();
+          let hConn: Awaited<ReturnType<typeof connect>> | undefined;
+          try {
+            hConn = await connect(config);
+            const hQueue = await openQueue(hConn, queueName, MQC.MQOO_OUTPUT | MQC.MQOO_FAIL_IF_QUIESCING);
+            const { msgId } = await putMessage(hQueue, Buffer.from(payload, 'utf8'), correlationId);
+            span.setAttribute('messaging.message_id', msgId.toString('hex'));
+
+            log.info('Order message published to IBM MQ', {
+              correlationId,
+              queue: queueName,
+              msgId: msgId.toString('hex'),
+              productId,
+              quantity,
+            });
+
+            res.status(202).json({
+              status: 'accepted',
+              queue: queueName,
+              orderId: correlationId,
+              msgId: msgId.toString('hex'),
+            });
+          } catch (err) {
+            const error = err as Error;
+            span.recordException(error);
+            span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+            log.error('Failed to publish order to IBM MQ', {
+              correlationId,
+              queue: queueName,
+              error: { message: error.message, stack: error.stack, type: error.name },
+            });
+            res.status(503).json({ error: 'Message broker unavailable', detail: error.message });
+          } finally {
+            if (hConn) {
+              await disconnect(hConn).catch(() => undefined);
+            }
+            span.end();
+          }
         });
       } catch (err) {
         const error = err as Error;
-        span.recordException(error);
-        span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-        log.error('Failed to publish order to IBM MQ', {
-          correlationId,
-          queue: queueName,
-          error: { message: error.message, stack: error.stack, type: error.name },
-        });
-        res.status(503).json({ error: 'Message broker unavailable', detail: error.message });
+        checkSpan.recordException(error);
+        checkSpan.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+        res.status(503).json({ error: 'Inventory service unavailable', detail: error.message });
       } finally {
-        if (hConn) {
-          await disconnect(hConn).catch(() => undefined);
-        }
-        span.end();
+        checkSpan.end();
       }
     });
   })

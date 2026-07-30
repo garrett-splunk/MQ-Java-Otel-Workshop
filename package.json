@@ -5,10 +5,11 @@
   "workspaces": [
     "packages/shared",
     "services/order-producer",
-    "services/order-consumer"
+    "services/order-consumer",
+    "services/inventory-service"
   ],
   "scripts": {
-    "build": "npm run build -w @mq-lab/shared && npm run build -w @mq-lab/order-producer && npm run build -w @mq-lab/order-consumer",
+    "build": "npm run build -w @mq-lab/shared && npm run build -w @mq-lab/order-producer && npm run build -w @mq-lab/order-consumer && npm run build -w @mq-lab/inventory-service",
     "load-traffic": "bash scripts/load-traffic.sh",
     "verify": "bash scripts/verify-stack.sh"
   },

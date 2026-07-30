@@ -20,6 +20,7 @@ check() {
 
 check "order-producer health" curl -sf "http://localhost:8080/health" | grep -q order-producer
 check "order-consumer health" curl -sf "http://localhost:8081/health" | grep -q order-consumer
+check "inventory-service health" curl -sf "http://localhost:8082/health" | grep -q inventory-service
 check "otel-collector health" curl -sf "http://localhost:13133/"
 check "workshop site" curl -sf "http://localhost:8091/" | grep -qi "IBM MQ"
 check "ibm-mq-java-metrics running" docker compose ps --status running ibm-mq-java-metrics 2>/dev/null | grep -q ibm-mq-java-metrics

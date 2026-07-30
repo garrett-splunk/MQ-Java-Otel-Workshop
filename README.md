@@ -20,12 +20,13 @@ bash scripts/verify-stack.sh
 | https://garrett-splunk.github.io/MQ-Java-Otel-Workshop/ | Guided workshop (GitHub Pages) |
 | http://localhost:8091 | Workshop site (local, with stack running) |
 | http://localhost:8080 | Order producer API |
+| http://localhost:8082 | Inventory service API |
 | http://localhost:9443/ibmmq/console | MQ web console (`admin` / password from `.env`) |
 | http://localhost:13133 | OTel Collector health |
 
-**Splunk filter:** `deployment.environment:ibm-mq-lab` · MQ metrics: **`ibm.mq`** · APM services: **`order-producer`**, **`order-consumer`**
+**Splunk filter:** `deployment.environment:ibm-mq-lab` · MQ metrics: **`ibm.mq`** · APM services: **`order-producer`**, **`inventory-service`**, **`order-consumer`**
 
-App traces are **on by default** (`OTEL_SDK_DISABLED=false` in `.env.example`). Spans include `mq.put.order` and `mq.get.order`.
+App traces are **on by default** (`OTEL_SDK_DISABLED=false` in `.env.example`). Spans include `inventory.check`, `mq.put.order`, `mq.get.order`, and `inventory.fulfill`.
 
 ## Send test orders
 
