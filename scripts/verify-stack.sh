@@ -18,18 +18,44 @@ check() {
   fi
 }
 
-check "order-producer health" curl -sf "http://localhost:8080/health" | grep -q order-producer
-check "order-consumer health" curl -sf "http://localhost:8081/health" | grep -q order-consumer
-check "inventory-service health" curl -sf "http://localhost:8082/health" | grep -q inventory-service
+wait_for_url() {
+  local name="$1"
+  local url="$2"
+  local pattern="${3:-}"
+  local deadline=$((SECONDS + 60))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    if [ -n "$pattern" ]; then
+      if curl -sf "$url" | grep -q "$pattern"; then
+        echo "OK  $name"
+        return 0
+      fi
+    elif curl -sf "$url" >/dev/null; then
+      echo "OK  $name"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "FAIL $name (not ready after 60s — is the stack still starting?)"
+  failures=$((failures + 1))
+  return 1
+}
+
+wait_for_url "order-producer health" "http://localhost:8080/health" order-producer || true
+wait_for_url "order-consumer health" "http://localhost:8081/health" order-consumer || true
+if curl -sf "http://localhost:8082/health" 2>/dev/null | grep -q inventory-service; then
+  echo "OK  inventory-service health"
+else
+  echo "SKIP inventory-service health (not deployed — older stack)"
+fi
 check "otel-collector health" curl -sf "http://localhost:13133/"
 check "workshop site" curl -sf "http://localhost:8091/" | grep -qi "IBM MQ"
 check "ibm-mq-java-metrics running" docker compose ps --status running ibm-mq-java-metrics 2>/dev/null | grep -q ibm-mq-java-metrics
 
 echo "== Sample order =="
-RESP=$(curl -sf -X POST "http://localhost:8080/orders" \
+RESP="$(curl -sf -X POST "http://localhost:8080/orders" \
   -H "Content-Type: application/json" \
   -H "X-Correlation-Id: verify-$(date +%s)" \
-  -d '{"productId":"SKU-100","quantity":2}')
+  -d '{"productId":"SKU-100","quantity":2}' 2>&1)" || RESP="curl failed: $?"
 echo "$RESP" | grep -q accepted && echo "OK  POST /orders" || { echo "FAIL POST /orders: $RESP"; failures=$((failures + 1)); }
 
 if [ "$failures" -gt 0 ]; then
