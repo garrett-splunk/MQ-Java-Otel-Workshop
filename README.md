@@ -1,6 +1,6 @@
 # IBM MQ → OpenTelemetry Java Contrib → Splunk Observability Cloud
 
-Hands-on workshop: IBM MQ queue manager, **OpenTelemetry Java Contrib `ibm-mq-metrics`** → OpenTelemetry Collector → Splunk Observability Cloud **Metrics**. Sample apps generate message traffic so queue depth changes.
+Hands-on workshop: IBM MQ queue manager, **OpenTelemetry Java Contrib `ibm-mq-metrics`**, instrumented sample apps (APM traces + logs), and OpenTelemetry Collector → Splunk Observability Cloud **Metrics**, **APM**, and **Log Observer**. Sample apps generate message traffic so queue depth and trace volume change.
 
 ## Quick start
 
