@@ -2,7 +2,7 @@
 # OpenTelemetry Java Contrib ibm-mq-metrics → OTLP (Splunk Observability Cloud lab track).
 ARG OTEL_JAVA_CONTRIB_REF=v1.59.0
 
-FROM eclipse-temurin:11-jdk-jammy AS builder
+FROM eclipse-temurin:17-jdk-jammy AS builder
 
 ARG OTEL_JAVA_CONTRIB_REF
 RUN apt-get update && apt-get install -y --no-install-recommends git \
