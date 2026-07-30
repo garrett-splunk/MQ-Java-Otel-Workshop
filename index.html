@@ -33,7 +33,7 @@
       <ul class="sidebar-tree">
         <li><a href="#overview" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> Overview</a></li>
         <li><a href="#architecture" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> Architecture</a></li>
-        <li><a href="#compare" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> vs mq_otel</a></li>
+        <li><a href="#compare" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> mq_otel vs Java Contrib</a></li>
         <li><a href="#prereqs" class="sidebar-tree__link" data-step="1"><span class="sidebar-tree__num">1</span> Prerequisites</a></li>
         <li><a href="#step-clone" class="sidebar-tree__link" data-step="2"><span class="sidebar-tree__num">2</span> Clone repo</a></li>
         <li><a href="#step-splunk-token" class="sidebar-tree__link" data-step="3"><span class="sidebar-tree__num">3</span> Splunk token</a></li>
@@ -154,27 +154,53 @@ inventory-service :8082</code></pre>
       </section>
 
       <section id="compare">
-        <h2>How this lab differs from the main IBM MQ workshop</h2>
-        <p class="muted">Both labs share the same sample apps, collector pattern, and Splunk environment tag (<code>ibm-mq-lab</code>). The difference is <em>which MQ metrics exporter</em> you run and <em>what the workshop exercises cover</em>.</p>
+        <h2><code>mq_otel</code> vs. OpenTelemetry Java Contrib — which to use?</h2>
+        <p class="muted">Splunk Observability Cloud ships both paths to the same destination. These labs differ in <em>how MQ metrics are collected</em> and <em>what the workshop exercises cover</em>. Sample apps, collector wiring, and the Splunk filter (<code>deployment.environment:ibm-mq-lab</code>) are the same pattern.</p>
+
+        <div class="callout callout--concept">
+          <p class="callout__title">Quick recommendation</p>
+          <ul>
+            <li><strong>Choose <code>mq_otel</strong> (<a href="https://garrett-splunk.github.io/MQ-O11y-Workshop/" target="_blank" rel="noopener">main lab</a>) if</strong> you run IBM MQ in production and want IBM’s supported, in-process metrics exporter — especially for ops/SRE teams focused on queue depth, channels, and queue-manager health.</li>
+            <li><strong>Choose Java Contrib (<a href="https://garrett-splunk.github.io/MQ-Java-Otel-Workshop/" target="_blank" rel="noopener">this lab</a>) if</strong> you want an OpenTelemetry-native sidecar/client scraper, need metrics without MQ bindings on the queue manager, or want a single workshop that covers <strong>MQ metrics + APM + logs</strong> end to end.</li>
+          </ul>
+          <p>Neither replaces the other. Many teams use <code>mq_otel</code> for production MQ infrastructure metrics and instrument applications separately with OpenTelemetry — this Java Contrib lab shows both MQ metrics and app traces in one stack.</p>
+        </div>
 
         <table class="info-table">
-          <thead><tr><th>Topic</th><th><a href="https://garrett-splunk.github.io/MQ-O11y-Workshop/" target="_blank" rel="noopener">Main lab</a> (<code>mq_otel</code>)</th><th>This lab (Java Contrib)</th></tr></thead>
+          <thead><tr><th>Topic</th><th><code>mq_otel</code> (IBM Go exporter)</th><th>Java Contrib (<code>ibm-mq-metrics</code>)</th></tr></thead>
           <tbody>
-            <tr><td>GitHub repo</td><td><a href="https://github.com/garrett-splunk/MQ-O11y-Workshop" target="_blank" rel="noopener">MQ-O11y-Workshop</a></td><td><a href="https://github.com/garrett-splunk/MQ-Java-Otel-Workshop" target="_blank" rel="noopener">MQ-Java-Otel-Workshop</a></td></tr>
-            <tr><td>Workshop focus</td><td><strong>MQ infrastructure metrics</strong> (Phase 1); APM/logs listed as Phase 2 roadmap</td><td><strong>Metrics + APM + logs</strong> in guided steps</td></tr>
-            <tr><td>MQ metrics exporter</td><td>IBM Go <code>mq_otel</code> — embedded in MQ container (bindings)</td><td><a href="https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics" target="_blank" rel="noopener">OpenTelemetry Java Contrib</a> — separate sidecar (TCP client)</td></tr>
+            <tr><td>GitHub repo / workshop</td><td><a href="https://github.com/garrett-splunk/MQ-O11y-Workshop" target="_blank" rel="noopener">MQ-O11y-Workshop</a></td><td><a href="https://github.com/garrett-splunk/MQ-Java-Otel-Workshop" target="_blank" rel="noopener">MQ-Java-Otel-Workshop</a> (you are here)</td></tr>
+            <tr><td>Who makes it</td><td>IBM — first-party MQ OpenTelemetry exporter</td><td><a href="https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics" target="_blank" rel="noopener">OpenTelemetry Java Contrib</a> community project</td></tr>
+            <tr><td>How it connects</td><td>In-process with the queue manager (<strong>bindings</strong>) — no extra client channel for metrics</td><td>Separate sidecar/container — TCP client to <code>mq:1414</code> via <code>MQOTEL.SVRCONN</code></td></tr>
+            <tr><td>Best deployment fit</td><td>MQ server / integrated container where bindings are allowed</td><td>Kubernetes sidecar, remote scraper, or anywhere you <em>cannot</em> install bindings on the QM</td></tr>
             <tr><td>Metric names in Splunk</td><td><code>ibmmq.queue.depth</code>, <code>ibmmq.*</code></td><td><code>ibm.mq.queue.depth</code>, <code>ibm.mq.*</code></td></tr>
-            <tr><td>Metric search</td><td>Search <code>ibmmq</code></td><td>Search <code>ibm.mq</code></td></tr>
-            <tr><td>Exporter connection</td><td>In-process with queue manager (no extra client channel for metrics)</td><td>Client to <code>mq:1414</code> via <code>MQOTEL.SVRCONN</code></td></tr>
-            <tr><td>First <code>docker compose up</code></td><td>Faster — no extra metrics sidecar build</td><td>Downloads prebuilt Java Contrib JAR from Maven Central (~1 min)</td></tr>
-            <tr><td>App traces (APM)</td><td>Available in repo; default Compose often has <code>OTEL_SDK_DISABLED=true</code>; exercises defer APM to Phase 2</td><td><strong>Enabled by default</strong> (<code>OTEL_SDK_DISABLED=false</code>); Steps 9–11 cover APM and logs</td></tr>
-            <tr><td>App span names</td><td><code>mq.put.order</code>, <code>mq.get.order</code></td><td>Same MQ spans, plus <code>inventory.check</code> / <code>inventory.fulfill</code> and <code>inventory-service</code> HTTP spans — see <a href="#architecture">Architecture</a></td></tr>
-            <tr><td>MQ native tracing exit</td><td>Optional Phase 2 (<code>mq/mqtracingexit.conf</code>)</td><td>Optional Step 10 — same config, same collector gRPC port</td></tr>
-            <tr><td>Collector pipelines</td><td colspan="2">OTLP in → Splunk metrics (<code>signalfx</code>), traces (<code>otlphttp/traces</code>), logs (<code>splunk_hec/o11y</code>)</td></tr>
-            <tr><td>Environment filter</td><td colspan="2"><code>deployment.environment:ibm-mq-lab</code></td></tr>
-            <tr><td>When to pick this lab</td><td>Learning IBM’s supported <code>mq_otel</code> exporter; bindings deployment; metrics-first ops workshop</td><td>Evaluating Java Contrib PCF monitor; sidecar/client deployment; full-stack observability (metrics + APM) in one session</td></tr>
+            <tr><td>Metric search</td><td><code>ibmmq</code></td><td><code>ibm.mq</code></td></tr>
+            <tr><td>Workshop scope</td><td><strong>Metrics-first</strong> — deep MQ infrastructure focus; APM/logs documented as a follow-on phase</td><td><strong>Metrics + APM + logs</strong> — full observability path in guided steps (including <a href="#architecture">service map</a> exercises)</td></tr>
+            <tr><td>First <code>docker compose up</code></td><td>Faster — exporter embedded in MQ image</td><td>~1 min extra — downloads prebuilt Java Contrib JAR from Maven Central</td></tr>
+            <tr><td>App traces (APM)</td><td>Available in repo; often disabled by default in Compose</td><td><strong>Enabled by default</strong> (<code>OTEL_SDK_DISABLED=false</code>)</td></tr>
+            <tr><td>MQ native tracing exit</td><td colspan="2">Optional in both labs — same <code>mq/mqtracingexit.conf</code> pattern</td></tr>
+            <tr><td>Collector → Splunk</td><td colspan="2">OTLP → metrics (<code>signalfx</code>), traces (<code>otlphttp/traces</code>), logs (<code>splunk_hec/o11y</code>)</td></tr>
           </tbody>
         </table>
+
+        <h3>Why pick <code>mq_otel</code>?</h3>
+        <ul>
+          <li><strong>IBM-supported</strong> — aligned with IBM MQ product direction and documentation.</li>
+          <li><strong>Lower integration overhead</strong> — runs inside the queue manager process; no sidecar to deploy or client channel to maintain for metrics alone.</li>
+          <li><strong>Ops-first workshops</strong> — ideal when the audience cares about queue depth, backlogs, and MQ infrastructure dashboards, not application APM.</li>
+          <li><strong>Existing <code>ibmmq.*</code> content</strong> — pick this if your Splunk charts or alerts already use the <code>ibmmq</code> metric prefix.</li>
+        </ul>
+
+        <h3>Why pick Java Contrib?</h3>
+        <ul>
+          <li><strong>OpenTelemetry-native</strong> — same OTLP → Collector → Splunk pipeline as the rest of your OTel estate; good for teams standardizing on OTel everywhere.</li>
+          <li><strong>Sidecar / client deployment</strong> — scrape MQ from outside the queue manager (multi-QM monitoring, restricted environments, Kubernetes).</li>
+          <li><strong>Full-stack workshop in one session</strong> — this lab walks metrics, APM service map, and structured logs together; useful for platform engineers evaluating the complete story.</li>
+          <li><strong>Community velocity</strong> — tracks the <a href="https://github.com/open-telemetry/opentelemetry-java-contrib" target="_blank" rel="noopener">OpenTelemetry Java Contrib</a> release cycle independently of IBM MQ fix packs.</li>
+        </ul>
+
+        <h3>Can I run both?</h3>
+        <p>Not in the same local Compose stack at the same time (port conflicts). In production you would typically choose <strong>one MQ metrics exporter per queue manager</strong> to avoid duplicate series. App-level OpenTelemetry instrumentation (producer, consumer, inventory) is independent of which MQ metrics exporter you choose.</p>
 
         <h3>Data flow in this lab</h3>
         <div class="flow-diagram" role="img" aria-label="Observability flow">
