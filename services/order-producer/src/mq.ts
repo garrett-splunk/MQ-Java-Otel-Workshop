@@ -92,7 +92,7 @@ export function getMessage(hObj: mq.MQObject, waitIntervalMs = 5000): Promise<{ 
       const buf = Buffer.alloc(1024 * 64);
 
       try {
-        const len = mq.GetSync(hObj, md, gmo, buf);
+        const len = mq.GetSync(hObj, md, gmo, buf) ?? 0;
         resolve({
           body: extractMessageBody(buf, len),
           msgId: bufToHex(md.MsgId),
