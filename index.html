@@ -80,7 +80,7 @@
             <tr><td>Metric names in Splunk</td><td><code>ibmmq.queue.depth</code>, <code>ibmmq.*</code></td><td><code>ibm.mq.queue.depth</code>, <code>ibm.mq.*</code></td></tr>
             <tr><td>Metric search</td><td>Search <code>ibmmq</code></td><td>Search <code>ibm.mq</code></td></tr>
             <tr><td>Exporter connection</td><td>In-process with queue manager (no extra client channel for metrics)</td><td>Client to <code>mq:1414</code> via <code>MQOTEL.SVRCONN</code></td></tr>
-            <tr><td>First <code>docker compose up</code></td><td>Faster — no Gradle build</td><td>Slower — builds Java Contrib JAR on first run (~10–15 min on Apple Silicon)</td></tr>
+            <tr><td>First <code>docker compose up</code></td><td>Faster — no extra metrics sidecar build</td><td>Downloads prebuilt Java Contrib JAR from Maven Central (~1 min)</td></tr>
             <tr><td>App traces (APM)</td><td>Available in repo; default Compose often has <code>OTEL_SDK_DISABLED=true</code>; exercises defer APM to Phase 2</td><td><strong>Enabled by default</strong> (<code>OTEL_SDK_DISABLED=false</code>); Steps 9–11 cover APM and logs</td></tr>
             <tr><td>App span names</td><td colspan="2"><code>mq.put.order</code> (producer), <code>mq.get.order</code> (consumer) — same in both repos</td></tr>
             <tr><td>MQ native tracing exit</td><td>Optional Phase 2 (<code>mq/mqtracingexit.conf</code>)</td><td>Optional Step 10 — same config, same collector gRPC port</td></tr>
@@ -115,7 +115,7 @@
           <li><strong>Splunk Observability Cloud</strong> ingest token (facilitator-provided or your org’s token)</li>
           <li><strong>Node.js 20+</strong> (optional — for <code>npm run load-traffic</code> only)</li>
         </ul>
-        <p class="muted">Apple Silicon: services use <code>linux/amd64</code>; first build of <code>ibm-mq-java-metrics</code> (Gradle) can take 10–15 minutes.</p>
+        <p class="muted">Apple Silicon: services use <code>linux/amd64</code>. The Java metrics image downloads prebuilt JARs from Maven Central (no Gradle compile).</p>
       </section>
 
       <section id="step-clone">
@@ -163,14 +163,14 @@ grep -q 'your-ingest-token-here' .env.splunk && echo "WARN: replace placeholder 
           <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-up">Copy</button></div>
           <pre><code id="cmd-up">docker compose up --build -d</code></pre>
         </div>
-        <p>Watch the Java exporter (Gradle build on first run):</p>
+        <p>Watch the Java exporter start:</p>
         <div class="code-block">
           <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-logs">Copy</button></div>
           <pre><code id="cmd-logs">docker compose logs -f ibm-mq-java-metrics</code></pre>
         </div>
         <div class="callout callout--info">
           <p class="callout__title">What gets deployed</p>
-          <p><code>ibm-mq-java-metrics/</code> clones <code>opentelemetry-java-contrib</code> v1.59.0, builds the shadow JAR, and scrapes MQ via PCF every 15s. Config template: <code>ibm-mq-java-metrics/config.lab.yml</code>.</p>
+          <p><code>ibm-mq-java-metrics/</code> downloads the published <code>opentelemetry-ibm-mq-metrics</code> uber-JAR plus IBM <code>com.ibm.mq.allclient</code> from Maven Central, then scrapes MQ via PCF every 15s. Config template: <code>ibm-mq-java-metrics/config.lab.yml</code>.</p>
         </div>
       </section>
 
@@ -295,7 +295,7 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
           <tbody>
             <tr>
               <td><code>ibm-mq-java-metrics</code> build fails</td>
-              <td>Network for Git/Gradle during <code>docker compose build</code>. Allow extra time on Apple Silicon (amd64 emulation).</td>
+              <td>Needs outbound HTTPS to Maven Central during <code>docker compose build</code>. On Apple Silicon, image uses <code>linux/amd64</code> emulation.</td>
             </tr>
             <tr>
               <td>MQ auth errors in Java logs</td>
