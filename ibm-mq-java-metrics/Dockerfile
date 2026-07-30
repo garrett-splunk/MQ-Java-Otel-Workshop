@@ -1,33 +1,26 @@
 # syntax=docker/dockerfile:1
 # OpenTelemetry Java Contrib ibm-mq-metrics → OTLP (Splunk Observability Cloud lab track).
-ARG OTEL_JAVA_CONTRIB_REF=v1.59.0
-
-FROM eclipse-temurin:21-jdk-jammy AS builder
-
-ARG OTEL_JAVA_CONTRIB_REF
-RUN apt-get update && apt-get install -y --no-install-recommends git \
-  && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /src
-RUN git clone --depth 1 --branch "${OTEL_JAVA_CONTRIB_REF}" \
-  https://github.com/open-telemetry/opentelemetry-java-contrib.git
-
-WORKDIR /src/opentelemetry-java-contrib
-RUN ./gradlew :ibm-mq-metrics:shadowJar --no-daemon -x test -x integrationTest
-
-RUN mkdir -p /out \
-  && cp ibm-mq-metrics/build/libs/opentelemetry-ibm-mq-monitoring-*-all.jar /out/ibm-mq-metrics.jar \
-  && ALLCLIENT="$(find /root/.gradle/caches -name 'com.ibm.mq.allclient-*.jar' -type f | head -1)" \
-  && test -n "$ALLCLIENT" \
-  && cp "$ALLCLIENT" /out/com.ibm.mq.allclient.jar
+# Prebuilt JARs from Maven Central — avoids multi-minute Gradle builds in the workshop.
+ARG IBM_MQ_METRICS_VERSION=1.59.0-alpha
+ARG IBM_MQ_ALLCLIENT_VERSION=10.0.0.0
 
 FROM eclipse-temurin:11-jre-jammy AS runtime
 
-RUN useradd --system --home /opt/ibm-mq-metrics --shell /usr/sbin/nologin mqmetrics
+ARG IBM_MQ_METRICS_VERSION
+ARG IBM_MQ_ALLCLIENT_VERSION
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/* \
+  && useradd --system --home /opt/ibm-mq-metrics --shell /usr/sbin/nologin mqmetrics
 
 WORKDIR /opt/ibm-mq-metrics
-COPY --from=builder /out/ibm-mq-metrics.jar /opt/ibm-mq-metrics/ibm-mq-metrics.jar
-COPY --from=builder /out/com.ibm.mq.allclient.jar /opt/ibm-mq-metrics/com.ibm.mq.allclient.jar
+RUN curl -fsSL \
+  "https://repo1.maven.org/maven2/io/opentelemetry/contrib/opentelemetry-ibm-mq-metrics/${IBM_MQ_METRICS_VERSION}/opentelemetry-ibm-mq-metrics-${IBM_MQ_METRICS_VERSION}-all.jar" \
+  -o /opt/ibm-mq-metrics/ibm-mq-metrics.jar \
+  && curl -fsSL \
+  "https://repo1.maven.org/maven2/com/ibm/mq/com.ibm.mq.allclient/${IBM_MQ_ALLCLIENT_VERSION}/com.ibm.mq.allclient-${IBM_MQ_ALLCLIENT_VERSION}.jar" \
+  -o /opt/ibm-mq-metrics/com.ibm.mq.allclient.jar
+
 COPY config.lab.yml /opt/ibm-mq-metrics/config.lab.yml
 COPY entrypoint.sh /opt/ibm-mq-metrics/entrypoint.sh
 

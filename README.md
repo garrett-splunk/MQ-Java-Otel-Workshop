@@ -4,7 +4,7 @@ Hands-on workshop: IBM MQ queue manager, **OpenTelemetry Java Contrib `ibm-mq-me
 
 ## Quick start
 
-**Apple Silicon (M1/M2/M3):** IBM MQ and the Java metrics image run under `platform: linux/amd64` in Compose. First start (especially the Gradle build for `ibm-mq-java-metrics`) may take several minutes.
+**Apple Silicon (M1/M2/M3):** IBM MQ and the Java metrics image run under `platform: linux/amd64` in Compose. The Java metrics image downloads prebuilt JARs from Maven Central (about a minute), not a Gradle compile.
 
 ```bash
 git clone https://github.com/garrett-splunk/MQ-Java-Otel-Workshop.git
