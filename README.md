@@ -28,6 +28,30 @@ bash scripts/verify-stack.sh
 
 App traces are **on by default** (`OTEL_SDK_DISABLED=false` in `.env.example`). Spans include `inventory.check`, `mq.put.order`, `mq.get.order`, and `inventory.fulfill`.
 
+## Application architecture (service map)
+
+The demo simulates an order pipeline with three instrumented Node.js services plus IBM MQ:
+
+```
+Client → order-producer → inventory-service (/check)
+              ↓
+           IBM MQ (ORDER.REQ)
+              ↓
+         order-consumer → inventory-service (/fulfill)
+```
+
+| Step | What happens |
+|------|----------------|
+| 1 | `POST /orders` hits **order-producer** (`:8080`) with `productId`, `quantity`, and optional `X-Correlation-Id` |
+| 2 | Producer calls **inventory-service** `POST /check` — rejects with `409` if stock is insufficient |
+| 3 | Producer publishes JSON to MQ queue `ORDER.REQ` (`mq.put.order` span) and returns `202` |
+| 4 | **order-consumer** reads the message in the background (`mq.get.order` span) |
+| 5 | Consumer calls **inventory-service** `POST /fulfill` to decrement in-memory stock |
+
+**Splunk APM service map edges:** `order-producer` → `inventory-service`, `order-producer` → MQ, MQ → `order-consumer`, `order-consumer` → `inventory-service`.
+
+Producer and consumer traces are **separate trees** (async via MQ); link them with the shared `orderId` / correlation ID in logs and span attributes. Full detail: [workshop site — Architecture](https://garrett-splunk.github.io/MQ-Java-Otel-Workshop/#architecture).
+
 ## Send test orders
 
 ```bash
