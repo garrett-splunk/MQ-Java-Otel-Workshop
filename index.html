@@ -419,6 +419,10 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
               <td>Environment filter must be <code>ibm-mq-lab</code>. Send at least one successful order before searching.</td>
             </tr>
             <tr>
+              <td>Only <code>order-producer</code> in service map</td>
+              <td>Ensure <code>inventory-service</code> is running (<code>curl http://localhost:8082/health</code>) and you have pulled latest (<code>git pull</code> + <code>docker compose up --build -d</code>). Confirm consumer is draining the queue: <code>docker compose logs order-consumer | grep consumed</code>. If queue depth stays high, rebuild <code>order-consumer</code> (MQ GET fix for Docker Desktop on Apple Silicon).</td>
+            </tr>
+            <tr>
               <td><code>verify-stack.sh</code> fails on Java container</td>
               <td><code>docker compose logs ibm-mq-java-metrics</code> — container may still be building on first start.</td>
             </tr>
