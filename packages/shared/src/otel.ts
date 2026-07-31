@@ -2,10 +2,7 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { LoggerProvider, BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
-import { logs } from '@opentelemetry/api-logs';
 import { Resource } from '@opentelemetry/resources';
 import {
   ATTR_SERVICE_NAME,
@@ -13,7 +10,6 @@ import {
 } from '@opentelemetry/semantic-conventions';
 
 let sdk: NodeSDK | null = null;
-let loggerProvider: LoggerProvider | null = null;
 
 export interface ObservabilityOptions {
   serviceName: string;
@@ -48,16 +44,6 @@ export function initObservability(options: ObservabilityOptions): void {
 
   const resource = buildResource(serviceName, deploymentEnvironment);
 
-  loggerProvider = new LoggerProvider({ resource });
-  loggerProvider.addLogRecordProcessor(
-    new BatchLogRecordProcessor(
-      new OTLPLogExporter({
-        url: `${otlpEndpoint}/v1/logs`,
-      })
-    )
-  );
-  logs.setGlobalLoggerProvider(loggerProvider);
-
   sdk = new NodeSDK({
     resource,
     traceExporter: new OTLPTraceExporter({
@@ -83,9 +69,6 @@ export function initObservability(options: ObservabilityOptions): void {
   sdk.start();
 
   process.on('SIGTERM', () => {
-    Promise.all([
-      sdk?.shutdown().catch(() => undefined),
-      loggerProvider?.shutdown().catch(() => undefined),
-    ]).catch(() => undefined);
+    sdk?.shutdown().catch(() => undefined);
   });
 }

@@ -1,6 +1,6 @@
 # IBM MQ → OpenTelemetry Java Contrib → Splunk Observability Cloud
 
-Hands-on workshop: IBM MQ queue manager, **OpenTelemetry Java Contrib `ibm-mq-metrics`**, instrumented sample apps (APM traces + logs), and OpenTelemetry Collector → Splunk Observability Cloud **Metrics**, **APM**, and **Log Observer**. Sample apps generate message traffic so queue depth and trace volume change.
+Hands-on workshop: IBM MQ queue manager, **OpenTelemetry Java Contrib `ibm-mq-metrics`**, instrumented sample apps (APM traces), and OpenTelemetry Collector → Splunk Observability Cloud **Metrics** and **APM**. Sample apps generate message traffic so queue depth and trace volume change.
 
 ## Quick start
 
@@ -50,7 +50,7 @@ Client → order-producer → inventory-service (/check)
 
 **Splunk APM service map edges:** `order-producer` → `inventory-service`, `order-producer` → MQ, MQ → `order-consumer`, `order-consumer` → `inventory-service`.
 
-Producer and consumer traces are **separate trees** (async via MQ); link them with the shared `orderId` / correlation ID in logs and span attributes. Full detail: [workshop site — Architecture](https://garrett-splunk.github.io/MQ-Java-Otel-Workshop/#architecture).
+Producer and consumer traces are **separate trees** (async via MQ); link them with the shared `orderId` / correlation ID in span attributes. Full detail: [workshop site — Architecture](https://garrett-splunk.github.io/MQ-Java-Otel-Workshop/#architecture).
 
 ## Send test orders
 
@@ -69,7 +69,7 @@ Secrets live only in `.env.splunk` (gitignored). The collector loads them and fo
 
 ## Related lab
 
-The [MQ-O11y-Workshop](https://github.com/garrett-splunk/MQ-O11y-Workshop) repo covers the IBM Go **`mq_otel`** exporter track (`ibmmq.*` metrics) with a metrics-first workshop; APM is documented as Phase 2 there. This repo includes **metrics + APM + logs** in the guided steps.
+The [MQ-O11y-Workshop](https://github.com/garrett-splunk/MQ-O11y-Workshop) repo covers the IBM Go **`mq_otel`** exporter track (`ibmmq.*` metrics) with a metrics-first workshop; APM is documented as Phase 2 there. This repo includes **metrics + APM** in the guided steps.
 
 ## Teardown
 

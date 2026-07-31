@@ -29,7 +29,7 @@
   <div class="page">
     <aside class="sidebar" aria-label="Lab steps">
       <p class="sidebar__sub">Workshop</p>
-      <p class="sidebar__hint">Metrics · APM · logs · ~60–90 min</p>
+      <p class="sidebar__hint">Metrics · APM · ~60–90 min</p>
       <ul class="sidebar-tree">
         <li><a href="#overview" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> Overview</a></li>
         <li><a href="#architecture" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">—</span> Architecture</a></li>
@@ -44,7 +44,6 @@
         <li><a href="#step-splunk-metrics" class="sidebar-tree__link" data-step="8"><span class="sidebar-tree__num">8</span> MQ metrics</a></li>
         <li><a href="#step-apm" class="sidebar-tree__link" data-step="9"><span class="sidebar-tree__num">9</span> APM &amp; traces</a></li>
         <li><a href="#step-mq-tracing" class="sidebar-tree__link" data-step="10"><span class="sidebar-tree__num">10</span> MQ tracing exit (optional)</a></li>
-        <li><a href="#step-logs" class="sidebar-tree__link" data-step="11"><span class="sidebar-tree__num">11</span> Logs (optional)</a></li>
         <li><a href="#troubleshoot" class="sidebar-tree__link" data-step="0"><span class="sidebar-tree__num">?</span> Troubleshooting</a></li>
       </ul>
       <div class="sidebar-footer">
@@ -60,7 +59,7 @@
         <p class="lead">
           Clone this repo, run IBM MQ locally, export queue metrics with
           <a href="https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/ibm-mq-metrics" target="_blank" rel="noopener">OpenTelemetry Java Contrib <code>ibm-mq-metrics</code></a>,
-          and view <code>ibm.mq.*</code> metrics, <strong>APM traces</strong>, and structured logs in Splunk Observability Cloud.
+          and view <code>ibm.mq.*</code> metrics and <strong>APM traces</strong> in Splunk Observability Cloud.
         </p>
         <div class="callout callout--concept">
           <p class="callout__title">Everything you need is in this repo</p>
@@ -114,7 +113,7 @@ inventory-service :8082</code></pre>
             <tr><td><code>order-consumer</code></td><td>8081</td><td>Background worker — reads <code>ORDER.REQ</code>, fulfills inventory</td></tr>
             <tr><td><code>mq</code> (IBM MQ)</td><td>1414</td><td>Message broker — decouples producer from consumer; queue depth drives <code>ibm.mq.*</code> metrics</td></tr>
             <tr><td><code>ibm-mq-java-metrics</code></td><td>—</td><td>Sidecar — scrapes MQ via PCF every 15s, exports <code>ibm.mq.*</code> metrics (not part of the order HTTP path)</td></tr>
-            <tr><td><code>otel-collector</code></td><td>4317/4318</td><td>Receives OTLP traces, metrics, and logs from all services → forwards to Splunk</td></tr>
+            <tr><td><code>otel-collector</code></td><td>4317/4318</td><td>Receives OTLP traces and metrics from all services → forwards to Splunk</td></tr>
           </tbody>
         </table>
 
@@ -144,7 +143,7 @@ inventory-service :8082</code></pre>
 
         <div class="callout callout--concept">
           <p class="callout__title">Async messaging vs one long trace</p>
-          <p>Producer and consumer run as <strong>separate processes</strong> connected by IBM MQ. Splunk APM typically shows <strong>two trace trees</strong> per order (one for the HTTP request at the producer, one for the background GET at the consumer), not a single end-to-end trace. Tie them together with the shared <code>orderId</code> / <code>X-Correlation-Id</code> in span attributes and structured logs (Steps 9 and 11). Optional Step 10 (MQ tracing exit) can add queue-manager spans that sit between producer and consumer in the map.</p>
+          <p>Producer and consumer run as <strong>separate processes</strong> connected by IBM MQ. Splunk APM typically shows <strong>two trace trees</strong> per order (one for the HTTP request at the producer, one for the background GET at the consumer), not a single end-to-end trace. Tie them together with the shared <code>orderId</code> / <code>X-Correlation-Id</code> in span attributes (Step 9). Optional Step 10 (MQ tracing exit) can add queue-manager spans that sit between producer and consumer in the map.</p>
         </div>
 
         <div class="callout callout--tip">
@@ -161,7 +160,7 @@ inventory-service :8082</code></pre>
           <p class="callout__title">Quick recommendation</p>
           <ul>
             <li><strong>Choose <code>mq_otel</strong> (<a href="https://garrett-splunk.github.io/MQ-O11y-Workshop/" target="_blank" rel="noopener">main lab</a>) if</strong> you run IBM MQ in production and want IBM’s supported, in-process metrics exporter — especially for ops/SRE teams focused on queue depth, channels, and queue-manager health.</li>
-            <li><strong>Choose Java Contrib (<a href="https://garrett-splunk.github.io/MQ-Java-Otel-Workshop/" target="_blank" rel="noopener">this lab</a>) if</strong> you want an OpenTelemetry-native sidecar/client scraper, need metrics without MQ bindings on the queue manager, or want a single workshop that covers <strong>MQ metrics + APM + logs</strong> end to end.</li>
+            <li><strong>Choose Java Contrib (<a href="https://garrett-splunk.github.io/MQ-Java-Otel-Workshop/" target="_blank" rel="noopener">this lab</a>) if</strong> you want an OpenTelemetry-native sidecar/client scraper, need metrics without MQ bindings on the queue manager, or want a single workshop that covers <strong>MQ metrics + APM</strong> end to end.</li>
           </ul>
           <p>Neither replaces the other. Many teams use <code>mq_otel</code> for production MQ infrastructure metrics and instrument applications separately with OpenTelemetry — this Java Contrib lab shows both MQ metrics and app traces in one stack.</p>
         </div>
@@ -175,10 +174,10 @@ inventory-service :8082</code></pre>
             <tr><td>Best deployment fit</td><td>MQ server / integrated container where bindings are allowed</td><td>Kubernetes sidecar, remote scraper, or anywhere you <em>cannot</em> install bindings on the QM</td></tr>
             <tr><td>Metric names in Splunk</td><td><code>ibmmq.queue.depth</code>, <code>ibmmq.*</code></td><td><code>ibm.mq.queue.depth</code>, <code>ibm.mq.*</code></td></tr>
             <tr><td>Metric search</td><td><code>ibmmq</code></td><td><code>ibm.mq</code></td></tr>
-            <tr><td>Workshop scope</td><td><strong>Metrics-first</strong> — deep MQ infrastructure focus; APM/logs documented as a follow-on phase</td><td><strong>Metrics + APM + logs</strong> — full observability path in guided steps (including <a href="#architecture">service map</a> exercises)</td></tr>
+            <tr><td>Workshop scope</td><td><strong>Metrics-first</strong> — deep MQ infrastructure focus; APM documented as a follow-on phase</td><td><strong>Metrics + APM</strong> — MQ metrics and application service map in guided steps (including <a href="#architecture">service map</a> exercises)</td></tr>
             <tr><td>App traces (APM)</td><td>Available in repo; often disabled by default in Compose</td><td><strong>Enabled by default</strong> (<code>OTEL_SDK_DISABLED=false</code>)</td></tr>
             <tr><td>MQ native tracing exit</td><td colspan="2">Optional in both labs — same <code>mq/mqtracingexit.conf</code> pattern</td></tr>
-            <tr><td>Collector → Splunk</td><td colspan="2">OTLP → metrics (<code>signalfx</code>), traces (<code>otlphttp/traces</code>), logs (<code>splunk_hec/o11y</code>)</td></tr>
+            <tr><td>Collector → Splunk</td><td colspan="2">OTLP → metrics (<code>signalfx</code>), traces (<code>otlphttp/traces</code>)</td></tr>
           </tbody>
         </table>
 
@@ -194,7 +193,7 @@ inventory-service :8082</code></pre>
         <ul>
           <li><strong>OpenTelemetry-native</strong> — same OTLP → Collector → Splunk pipeline as the rest of your OTel estate; good for teams standardizing on OTel everywhere.</li>
           <li><strong>Sidecar / client deployment</strong> — scrape MQ from outside the queue manager (multi-QM monitoring, restricted environments, Kubernetes).</li>
-          <li><strong>Full-stack workshop in one session</strong> — this lab walks metrics, APM service map, and structured logs together; useful for platform engineers evaluating the complete story.</li>
+          <li><strong>Full-stack workshop in one session</strong> — this lab walks metrics and the APM service map together; useful for platform engineers evaluating MQ + application observability in one stack.</li>
           <li><strong>Community velocity</strong> — tracks the <a href="https://github.com/open-telemetry/opentelemetry-java-contrib" target="_blank" rel="noopener">OpenTelemetry Java Contrib</a> release cycle independently of IBM MQ fix packs.</li>
         </ul>
 
@@ -203,13 +202,13 @@ inventory-service :8082</code></pre>
 
         <h3>Data flow in this lab</h3>
         <div class="flow-diagram" role="img" aria-label="Observability flow">
-          <div class="flow-node"><div class="flow-title">order-producer</div><div class="flow-sub">traces · logs</div></div>
+          <div class="flow-node"><div class="flow-title">order-producer</div><div class="flow-sub">traces</div></div>
           <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node"><div class="flow-title">inventory-service</div><div class="flow-sub">stock check · fulfill</div></div>
           <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node flow-node-accent"><div class="flow-title">IBM MQ</div><div class="flow-sub">Java metrics · tracing exit</div></div>
           <div class="flow-arrow"><span>→</span></div>
-          <div class="flow-node"><div class="flow-title">order-consumer</div><div class="flow-sub">traces · logs</div></div>
+          <div class="flow-node"><div class="flow-title">order-consumer</div><div class="flow-sub">traces</div></div>
           <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node"><div class="flow-title">inventory-service</div><div class="flow-sub">decrement stock</div></div>
           <div class="flow-arrow"><span>→</span></div>
@@ -217,7 +216,7 @@ inventory-service :8082</code></pre>
           <div class="flow-arrow"><span>→</span></div>
           <div class="flow-node"><div class="flow-title">OTel Collector</div><div class="flow-sub">normalize · tag</div></div>
           <div class="flow-arrow"><span>→</span></div>
-          <div class="flow-node"><div class="flow-title">Splunk Observability Cloud</div><div class="flow-sub">Metrics · APM · Log Observer</div></div>
+          <div class="flow-node"><div class="flow-title">Splunk Observability Cloud</div><div class="flow-sub">Metrics · APM</div></div>
         </div>
       </section>
 
@@ -267,7 +266,7 @@ grep -q 'your-ingest-token-here' .env.splunk && echo "WARN: replace placeholder 
           <pre><code id="cmd-env">cp .env.example .env</code></pre>
         </div>
         <p>Default demo MQ password is <code>passw0rd</code> (<code>MQ_APP_PASSWORD</code> in <code>.env</code>). The Java exporter uses the same credentials via Compose environment variables.</p>
-        <p><code>OTEL_SDK_DISABLED=false</code> (default) turns on OTLP traces and logs from <code>order-producer</code>, <code>inventory-service</code>, and <code>order-consumer</code> for the APM exercises in Step 9. Set <code>true</code> only if you want metrics-only locally.</p>
+        <p><code>OTEL_SDK_DISABLED=false</code> (default) turns on OTLP traces from <code>order-producer</code>, <code>inventory-service</code>, and <code>order-consumer</code> for the APM exercises in Step 9. Set <code>true</code> only if you want metrics-only locally.</p>
       </section>
 
       <section id="step-start">
@@ -346,7 +345,7 @@ bash scripts/load-traffic.sh 30 400</code></pre>
         <p>Sample apps emit OpenTelemetry traces for HTTP requests and MQ PUT/GET operations. The collector forwards them to Splunk Observability Cloud APM via the <code>traces</code> pipeline (<code>otlphttp/traces</code> exporter). For a full picture of which services call which, read <a href="#architecture">Application architecture</a> first.</p>
 
         <h3>9a — Trigger a traceable order</h3>
-        <p>Use a unique correlation ID so you can find the same request in APM and logs:</p>
+        <p>Use a unique correlation ID so you can find the same request across producer and consumer traces:</p>
         <div class="code-block">
           <div class="code-block__header"><span>Terminal</span><button class="btn-copy" data-copy="cmd-apm-order">Copy</button></div>
           <pre><code id="cmd-apm-order">CORR_ID="apm-lab-$(date +%s)"
@@ -377,7 +376,7 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
         </ol>
         <div class="callout callout--info">
           <p class="callout__title">Correlation ID</p>
-          <p>The HTTP header <code>X-Correlation-Id</code> becomes the order ID in the message payload and appears in structured logs. Search logs (Step 11) with the same ID to tie metrics, traces, and logs together.</p>
+          <p>The HTTP header <code>X-Correlation-Id</code> becomes the order ID in the message payload and appears on span attributes. Search traces in APM with the same ID to tie producer and consumer trees together.</p>
         </div>
 
         <h3>9d — Generate more trace volume</h3>
@@ -398,19 +397,6 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
 # wait ~60s, then send another order (Step 9a)</code></pre>
         </div>
         <p>In APM, look for additional spans originating from MQ internal operations alongside <code>mq.put.order</code> / <code>mq.get.order</code>. Support varies by MQ platform version — treat as a bonus exercise if spans appear.</p>
-      </section>
-
-      <section id="step-logs">
-        <div class="step-meta"><span class="step-badge">Step 11</span><span class="step-time">~5 min · optional</span></div>
-        <h2>Structured logs in Splunk Observability Cloud</h2>
-        <p>Producer and consumer emit JSON logs via OTLP to the collector <code>logs</code> pipeline (<code>splunk_hec/o11y</code> exporter).</p>
-        <ol class="checklist">
-          <li>Open <strong>Log Observer</strong> (or Logs).</li>
-          <li>Filter: <code>deployment.environment:ibm-mq-lab</code></li>
-          <li>Search: <code>service.name:order-producer</code>, <code>service.name:inventory-service</code>, or <code>service.name:order-consumer</code></li>
-          <li>Find log lines like <code>Order message published to IBM MQ</code> / <code>Order message consumed from IBM MQ</code>.</li>
-          <li>Match the <code>correlationId</code> field from Step 9a across producer and consumer logs.</li>
-        </ol>
       </section>
 
       <section id="troubleshoot">
@@ -445,10 +431,6 @@ echo "Correlation ID: ${CORR_ID}"</code></pre>
             <tr>
               <td><code>409 Insufficient inventory</code></td>
               <td>Expected if stock is exhausted for a SKU. Restart <code>inventory-service</code> to reset in-memory stock, or use another <code>productId</code> (e.g. <code>SKU-100</code>).</td>
-            </tr>
-            <tr>
-              <td>Services missing in APM</td>
-              <td>Environment filter must be <code>ibm-mq-lab</code>. Send at least one successful order before searching.</td>
             </tr>
             <tr>
               <td>Only <code>order-producer</code> in service map</td>

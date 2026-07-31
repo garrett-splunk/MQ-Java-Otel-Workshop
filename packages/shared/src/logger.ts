@@ -1,5 +1,4 @@
 import { context, trace } from '@opentelemetry/api';
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
 
 export type LogSeverity = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL';
 
@@ -27,7 +26,6 @@ export interface StructuredLogger {
 }
 
 const DEPLOYMENT_ENV = process.env.DEPLOYMENT_ENVIRONMENT || process.env.NODE_ENV || 'ibm-mq-lab';
-const LOGS_DISABLED = process.env.OTEL_SDK_DISABLED === 'true';
 
 const SEVERITY_MAP: Record<LogSeverity, string> = {
   DEBUG: 'DEBUG',
@@ -45,18 +43,18 @@ function getTraceContext(): { traceId?: string; spanId?: string } {
   return { traceId: spanContext.traceId, spanId: spanContext.spanId };
 }
 
-function severityToNumber(severity: LogSeverity): SeverityNumber {
+function severityToNumber(severity: LogSeverity): number {
   switch (severity) {
     case 'DEBUG':
-      return SeverityNumber.DEBUG;
+      return 5;
     case 'INFO':
-      return SeverityNumber.INFO;
+      return 9;
     case 'WARN':
-      return SeverityNumber.WARN;
+      return 13;
     case 'ERROR':
-      return SeverityNumber.ERROR;
+      return 17;
     case 'FATAL':
-      return SeverityNumber.FATAL;
+      return 21;
   }
 }
 
@@ -76,62 +74,6 @@ function stripKnownFields(meta: LogContext): Record<string, unknown> {
     ...rest
   } = meta;
   return Object.keys(rest).length ? rest : {};
-}
-
-function emitOtelLog(
-  severity: LogSeverity,
-  serviceName: string,
-  message: string,
-  meta: LogContext,
-  traceCtx: { traceId?: string; spanId?: string }
-): void {
-  if (LOGS_DISABLED) return;
-
-  const attributes: Record<string, string | number | boolean> = {
-    'deployment.environment': DEPLOYMENT_ENV,
-    'deployment.environment.name': DEPLOYMENT_ENV,
-    'log.logger': serviceName,
-  };
-
-  if (meta.correlationId) attributes['correlation_id'] = meta.correlationId;
-  if (meta.httpMethod) attributes['http_method'] = meta.httpMethod;
-  if (meta.httpRoute) attributes['http_route'] = meta.httpRoute;
-  if (meta.httpStatus !== undefined) attributes['http_status'] = meta.httpStatus;
-  if (meta.durationMs !== undefined) attributes['duration_ms'] = meta.durationMs;
-  if (meta.queue) attributes['mq.queue'] = meta.queue;
-  if (meta.msgId) attributes['mq.msg_id'] = meta.msgId;
-  if (meta.correlationIdMq) attributes['mq.correlation_id'] = meta.correlationIdMq;
-  if (traceCtx.traceId || meta.traceId) {
-    attributes['trace_id'] = meta.traceId || traceCtx.traceId || '';
-  }
-  if (traceCtx.spanId || meta.spanId) {
-    attributes['span_id'] = meta.spanId || traceCtx.spanId || '';
-  }
-
-  if (meta.error) {
-    const err = typeof meta.error === 'string' ? { message: meta.error } : meta.error;
-    attributes['error.message'] = err.message;
-    if (err.stack) attributes['error.stack'] = err.stack;
-    if (err.type) attributes['error.type'] = err.type;
-  }
-
-  const extra = stripKnownFields(meta);
-  for (const [key, value] of Object.entries(extra)) {
-    if (value === undefined || value === null) continue;
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      attributes[key] = value;
-    } else {
-      attributes[key] = JSON.stringify(value);
-    }
-  }
-
-  logs.getLogger(serviceName).emit({
-    severityNumber: severityToNumber(severity),
-    severityText: SEVERITY_MAP[severity],
-    body: message,
-    attributes,
-    context: context.active(),
-  });
 }
 
 function emit(severity: LogSeverity, serviceName: string, message: string, meta: LogContext = {}): void {
@@ -170,8 +112,6 @@ function emit(severity: LogSeverity, serviceName: string, message: string, meta:
   } else {
     console.log(line);
   }
-
-  emitOtelLog(severity, serviceName, message, meta, traceCtx);
 }
 
 export function createLogger(serviceName: string): StructuredLogger {
