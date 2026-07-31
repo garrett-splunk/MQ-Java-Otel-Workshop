@@ -176,7 +176,6 @@ inventory-service :8082</code></pre>
             <tr><td>Metric names in Splunk</td><td><code>ibmmq.queue.depth</code>, <code>ibmmq.*</code></td><td><code>ibm.mq.queue.depth</code>, <code>ibm.mq.*</code></td></tr>
             <tr><td>Metric search</td><td><code>ibmmq</code></td><td><code>ibm.mq</code></td></tr>
             <tr><td>Workshop scope</td><td><strong>Metrics-first</strong> — deep MQ infrastructure focus; APM/logs documented as a follow-on phase</td><td><strong>Metrics + APM + logs</strong> — full observability path in guided steps (including <a href="#architecture">service map</a> exercises)</td></tr>
-            <tr><td>First <code>docker compose up</code></td><td>Faster — exporter embedded in MQ image</td><td>~1 min extra — downloads prebuilt Java Contrib JAR from Maven Central</td></tr>
             <tr><td>App traces (APM)</td><td>Available in repo; often disabled by default in Compose</td><td><strong>Enabled by default</strong> (<code>OTEL_SDK_DISABLED=false</code>)</td></tr>
             <tr><td>MQ native tracing exit</td><td colspan="2">Optional in both labs — same <code>mq/mqtracingexit.conf</code> pattern</td></tr>
             <tr><td>Collector → Splunk</td><td colspan="2">OTLP → metrics (<code>signalfx</code>), traces (<code>otlphttp/traces</code>), logs (<code>splunk_hec/o11y</code>)</td></tr>
@@ -288,6 +287,10 @@ grep -q 'your-ingest-token-here' .env.splunk && echo "WARN: replace placeholder 
           <p class="callout__title">What gets deployed</p>
           <p><code>ibm-mq-java-metrics/</code> downloads the published <code>opentelemetry-ibm-mq-metrics</code> uber-JAR plus IBM <code>com.ibm.mq.allclient</code> from Maven Central, then scrapes MQ via PCF every 15s. Config template: <code>ibm-mq-java-metrics/config.lab.yml</code>.</p>
         </div>
+        <figure class="screenshot screenshot--terminal">
+          <img class="screenshot__img" src="screenshots/mq-java-workshop-docker-compose-starting.png" alt="Docker Compose building ibm-mq-java-metrics and starting containers with mq waiting for health" loading="lazy" width="720" height="405" />
+          <figcaption class="screenshot__caption">First start builds the Java metrics sidecar and brings containers up — <code>mq</code> may show <strong>Waiting</strong> until the queue manager passes its health check (~60s).</figcaption>
+        </figure>
       </section>
 
       <section id="step-verify">
@@ -298,6 +301,10 @@ grep -q 'your-ingest-token-here' .env.splunk && echo "WARN: replace placeholder 
           <pre><code id="cmd-verify">bash scripts/verify-stack.sh</code></pre>
         </div>
         <p>Checks producer/consumer health, collector, workshop site, Java metrics container, and a sample order.</p>
+        <figure class="screenshot screenshot--terminal">
+          <img class="screenshot__img" src="screenshots/mq-java-workshop-verify-stack.png" alt="verify-stack.sh output showing otel-collector health OK" loading="lazy" width="720" height="200" />
+          <figcaption class="screenshot__caption">Partial output from <code>verify-stack.sh</code> — collector health returns <code>OK otel-collector health</code>. The script continues through producer, consumer, inventory, and a sample order.</figcaption>
+        </figure>
         <p>Local workshop UI: <a href="http://localhost:8091">http://localhost:8091</a> · MQ console: <a href="http://localhost:9443/ibmmq/console">http://localhost:9443/ibmmq/console</a> (<code>admin</code> / password from <code>.env</code>)</p>
       </section>
 
@@ -324,8 +331,7 @@ bash scripts/load-traffic.sh 30 400</code></pre>
         <h2>MQ metrics in Splunk Observability Cloud</h2>
         <ol class="checklist">
           <li>Open <strong>Metrics</strong> → <strong>Metric Explorer</strong>.</li>
-          <li>Filter: <code>deployment.environment:ibm-mq-lab</code></li>
-          <li>Search metric names containing <code>ibm.mq</code> (not <code>ibmmq</code>).</li>
+          <li>Search metric names containing <code>ibm.mq</code> (not <code>ibmmq</code> — that prefix is from the <code>mq_otel</code> lab).</li>
           <li>Chart <code>ibm.mq.queue.depth</code>; filter dimension <code>queue = ORDER.REQ</code> if available.</li>
         </ol>
         <div class="callout callout--info">
